@@ -10,63 +10,104 @@ export async function POST(request: Request) {
         }
 
         const baseUrl = url.replace(/\/$/, '');
-
-        // Strategy 1: Try the standard /Me endpoint (best for self-service)
-        let targetUrl = `${baseUrl}/scim/v2/Me`;
         const credentials = Buffer.from(`${username}:${password}`).toString('base64');
-        const headers = {
+        const headers: HeadersInit = {
             'Authorization': `Basic ${credentials}`,
             'Content-Type': 'application/scim+json',
             'Accept': 'application/scim+json, application/json'
         };
 
-        console.log(`fetching identity profile from: ${targetUrl}`);
+        // Helper to fetch /Me
+        const fetchMe = async () => {
+            const targetUrl = `${baseUrl}/scim/v2/Me`;
+            // Add a timeout to prevent hanging
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-        let response = await fetch(targetUrl, { method: 'GET', headers });
+            try {
+                const response = await fetch(targetUrl, { method: 'GET', headers, signal: controller.signal });
+                clearTimeout(timeoutId);
 
-        // Strategy 2: Fallback to searching by username if /Me is not supported (404) or fails
-        if (response.status === 404 || response.status === 400 || response.status === 405) {
-            console.log("SCIM /Me failed or not supported. Falling back to userName search.");
-            targetUrl = `${baseUrl}/scim/v2/Users?filter=userName eq "${username}"`;
-            response = await fetch(targetUrl, { method: 'GET', headers });
-        }
-
-        const status = response.status;
-        const rawText = await response.text();
-        let data;
-        try {
-            data = JSON.parse(rawText);
-        } catch (e) {
-            data = { rawText };
-        }
-
-        if (!response.ok) {
-            // Special handling for permissions error
-            if (status === 403) {
-                return NextResponse.json({
-                    success: false,
-                    error: "Permission Denied. User may not have SCIM capabilities.",
-                    hint: "Ensure the user has the 'SP_SCIM_User' capability or equivalent."
-                }, { status: 403 });
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(JSON.stringify({ status: response.status, msg: text }));
+                }
+                return await response.json();
+            } catch (e: any) {
+                clearTimeout(timeoutId);
+                throw e;
             }
-            return NextResponse.json({ success: false, error: data.detail || response.statusText, details: data }, { status });
-        }
+        };
 
-        // If we used /Me, the profile IS the response.
-        // If we used /Users search, the profile is inside "Resources" list.
-        let userProfile = data;
-        if (data.Resources && Array.isArray(data.Resources)) {
-            userProfile = data.Resources.length > 0 ? data.Resources[0] : null;
-        }
+        // Helper to fetch Search
+        const fetchSearch = async () => {
+            const targetUrl = `${baseUrl}/scim/v2/Users?filter=userName eq "${username}"`;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        if (!userProfile) {
-            return NextResponse.json({ success: false, error: "User not found via SCIM" }, { status: 404 });
-        }
+            try {
+                const response = await fetch(targetUrl, { method: 'GET', headers, signal: controller.signal });
+                clearTimeout(timeoutId);
 
-        return NextResponse.json({
-            success: true,
-            user: userProfile
-        });
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(JSON.stringify({ status: response.status, msg: text }));
+                }
+                const data = await response.json();
+                if (data.Resources && Array.isArray(data.Resources) && data.Resources.length > 0) {
+                    return data.Resources[0];
+                }
+                throw new Error(JSON.stringify({ status: 404, msg: "User not found in search results" }));
+            } catch (e: any) {
+                clearTimeout(timeoutId);
+                throw e;
+            }
+        };
+
+        console.log(`[FastAuth] Racing /Me and /Users search for ${username}...`);
+
+        try {
+            // Promise.any waits for the first FULFILLED promise
+            const userProfile = await Promise.any([fetchMe(), fetchSearch()]);
+
+            return NextResponse.json({
+                success: true,
+                user: userProfile
+            });
+
+        } catch (error: any) {
+            // If we get here, BOTH failed.
+            console.error('[FastAuth] All auth strategies failed.');
+
+            let finalStatus = 500;
+            let finalMsg = "Authentication failed. Unable to retrieve user profile.";
+
+            if (error instanceof AggregateError) {
+                // Check inner errors
+                for (const e of error.errors) {
+                    try {
+                        const parsed = JSON.parse(e.message);
+                        if (parsed.status === 403) {
+                            finalStatus = 403;
+                            finalMsg = "Permission Denied. User may not have 'SP_SCIM_User' capability.";
+                            break;
+                        }
+                        if (parsed.status === 401) {
+                            finalStatus = 401;
+                            finalMsg = "Invalid Credentials.";
+                            break;
+                        }
+                    } catch (jsonErr) {
+                        // ignore parse error, use default
+                    }
+                }
+            }
+
+            return NextResponse.json({
+                success: false,
+                error: finalMsg
+            }, { status: finalStatus });
+        }
 
     } catch (error: any) {
         console.error('Profile fetch error:', error);
