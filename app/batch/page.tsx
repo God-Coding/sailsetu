@@ -116,14 +116,19 @@ export default function BatchRequestPage() {
         });
 
         const groups = Array.from(groupedMap.entries());
+
+        // Progress Counters (Need ref refs for atomic updates across async closures if we want to be super precise, 
+        // but state setter callbacks are fine for visual progress)
         let processedCount = 0;
         let successCount = 0;
         let failCount = 0;
 
-        for (const [identityName, items] of groups) {
+        const CONCURRENCY_LIMIT = 5;
+        let groupIndex = 0;
+
+        const processGroup = async (identityName: string, items: any[]) => {
             try {
-                // Prepare accessItems for ProvisionAccess workflow
-                // We map our CSV data to the format expected by ProvisionAccess
+                // Prepare accessItems
                 const accessItems = items.map((item: any) => {
                     let type = "entitlement";
                     let application = item.application || "IIQ";
@@ -146,12 +151,11 @@ export default function BatchRequestPage() {
                         value = item.value;
                     } else {
                         // Legacy
-                        if (item.type.toLowerCase().includes("role")) {
+                        if (item.type && item.type.toLowerCase().includes("role")) {
                             type = "role";
                             name = "assignedRoles";
                         } else {
-                            // Entitlement
-                            const parts = item.name.split(":");
+                            const parts = item.name ? item.name.split(":") : [];
                             if (parts.length >= 2) {
                                 application = parts[0].trim();
                                 name = parts[1].trim();
@@ -168,10 +172,8 @@ export default function BatchRequestPage() {
                     };
                 });
 
-                // Prepare Input List
                 const inputList = [
                     { key: "identityName", value: identityName },
-                    // Pass accessItems as a JSON string because ProvisionAccess expects it that way
                     { key: "accessItems", value: JSON.stringify(accessItems) }
                 ];
 
@@ -184,7 +186,7 @@ export default function BatchRequestPage() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         url, username, password,
-                        workflowName: "ProvisionAccess", // Use our Wrapper Workflow
+                        workflowName: "ProvisionAccess",
                         input: inputList
                     }),
                 });
@@ -194,7 +196,6 @@ export default function BatchRequestPage() {
                 if (data.success) {
                     successCount += items.length;
 
-                    // Extract Request ID
                     let reqId = "N/A";
                     if (data.launchResult && data.launchResult.attributes) {
                         const attrs = data.launchResult.attributes;
@@ -202,27 +203,15 @@ export default function BatchRequestPage() {
                         if (idAttr) {
                             reqId = idAttr.value;
                         } else {
-                            // If not found directly, check if it is inside the 'plan' attribute XML
                             const planAttr = attrs.find((a: any) => a.key === "plan");
                             if (planAttr && planAttr.value) {
                                 const match = planAttr.value.match(/key="identityRequestId" value="([^"]+)"/);
-                                if (match && match[1]) {
-                                    reqId = match[1];
-                                }
+                                if (match && match[1]) reqId = match[1];
                             }
                         }
-
-                        // Debugging: Show keys in the UI log to see what we actually got
-                        const keys = attrs.map((a: any) => a.key).join(", ");
-                        setLogs(prev => [`[DEBUG] Workflow Response Keys: ${keys}`, ...prev]);
-
-                        const traceAttr = attrs.find((a: any) => a.key === "debugTrace");
-                        if (traceAttr) setLogs(prev => [`[SERVER TRACE] ${traceAttr.value}`, ...prev]);
-                    } else {
-                        setLogs(prev => [`[DEBUG] No attributes returned in response.`, ...prev]);
                     }
 
-                    setLogs(prev => [`[SUCCESS] ${identityName}: Submitted batch (${items.length} items). Request ID: ${reqId}`, ...prev]);
+                    setLogs(prev => [`[SUCCESS] ${identityName}: Submitted batch (${items.length} items). Request ID: ${reqId}`, ...prev].slice(0, 50));
                     setParsedData(prev => prev.map(p => p.identity === identityName ? { ...p, status: 'success' } : p));
                 } else {
                     throw new Error(data.error || "Unknown error");
@@ -230,19 +219,34 @@ export default function BatchRequestPage() {
 
             } catch (e: any) {
                 failCount += items.length;
-                setLogs(prev => [`[ERROR] ${identityName}: ${e.message}`, ...prev]);
+                setLogs(prev => [`[ERROR] ${identityName}: ${e.message}`, ...prev].slice(0, 50));
                 setParsedData(prev => prev.map(p => p.identity === identityName ? { ...p, status: 'error' } : p));
             }
 
             processedCount += items.length;
-            setProgress({
+            setProgress(prev => ({
                 current: processedCount,
                 total,
                 success: successCount,
                 fail: failCount
-            });
-        }
+            }));
+        };
 
+        // Worker Loop
+        const worker = async () => {
+            while (groupIndex < groups.length) {
+                const idx = groupIndex++;
+                if (idx >= groups.length) break;
+                const [identityName, items] = groups[idx];
+                await processGroup(identityName, items);
+            }
+        };
+
+        const workers = Array(Math.min(CONCURRENCY_LIMIT, groups.length))
+            .fill(null)
+            .map(() => worker());
+
+        await Promise.all(workers);
         setProcessing(false);
     };
 
@@ -379,7 +383,7 @@ export default function BatchRequestPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {parsedData.map((row, i) => (
+                                    {parsedData.slice(0, 100).map((row, i) => (
                                         <tr key={i} className="hover:bg-white/5 transition-colors">
                                             <td className="px-6 py-3 font-medium text-slate-200">{row.identity}</td>
                                             <td className="px-6 py-3">

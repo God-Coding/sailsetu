@@ -153,19 +153,19 @@ export default function CreateWorkgroupPage() {
             const data = await parseCSV(csvFile);
             setBatchProgress({ total: data.length, current: 0, success: 0, fail: 0 });
 
-            for (let i = 0; i < data.length; i++) {
-                const item = data[i];
-                const itemName = item.name || item.workgroupName || "Unknown";
+            // CONCURRENCY CONTROL
+            const CONCURRENCY_LIMIT = 5;
+            let currentIndex = 0;
 
-                // Map CSV headers to input keys
-                // Expected Headers: name, description, owner, email, capabilities, members
+            const processItem = async (item: any) => {
+                const itemName = item.name || item.workgroupName || "Unknown";
                 const inputList = [
                     { key: "workgroupName", value: item.name || item.workgroupName },
                     { key: "description", value: item.description },
                     { key: "ownerName", value: item.owner || item.ownerName },
                     { key: "email", value: item.email },
-                    { key: "capabilities", value: item.capabilities }, // comma separated string
-                    { key: "members", value: item.members } // comma separated string
+                    { key: "capabilities", value: item.capabilities },
+                    { key: "members", value: item.members }
                 ];
 
                 try {
@@ -182,7 +182,6 @@ export default function CreateWorkgroupPage() {
 
                     if (resData.success) {
                         let msg = "Success";
-                        // Extract result message if possible
                         if (resData.launchResult && resData.launchResult.attributes) {
                             const r = resData.launchResult.attributes.find((a: any) => a.key === "result");
                             if (r) msg = r.value;
@@ -202,7 +201,23 @@ export default function CreateWorkgroupPage() {
                     setBatchLogs(prev => [`[FAIL] ${itemName}: ${err.message}`, ...prev]);
                     setBatchProgress(prev => prev ? ({ ...prev, fail: prev.fail + 1, current: prev.current + 1 }) : null);
                 }
-            }
+            };
+
+            // Worker function to consume items from the queue
+            const worker = async () => {
+                while (currentIndex < data.length) {
+                    const index = currentIndex++;
+                    if (index >= data.length) break;
+                    await processItem(data[index]);
+                }
+            };
+
+            // Start workers
+            const workers = Array(Math.min(CONCURRENCY_LIMIT, data.length))
+                .fill(null)
+                .map(() => worker());
+
+            await Promise.all(workers);
 
         } catch (e: any) {
             setBatchLogs(prev => [`[FATAL] Batch failed: ${e.message}`, ...prev]);
