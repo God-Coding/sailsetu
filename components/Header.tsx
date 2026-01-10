@@ -3,20 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/ui/auth-context";
-import { Hammer, LayoutDashboard, FileSpreadsheet, GitCompare, LogOut, Anchor } from "lucide-react";
+import { useState } from "react";
+import { Hammer, LayoutDashboard, FileSpreadsheet, GitCompare, LogOut, Anchor, Terminal, ChevronDown, Info } from "lucide-react";
 
 export default function Header() {
     const pathname = usePathname();
     const { isAuthenticated, logout, username } = useAuth();
+    const [toolsOpen, setToolsOpen] = useState(false);
 
     // Don't show header on login page
     if (pathname === "/") return null;
 
-    const navItems = [
-        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    const toolsItems = [
         { name: "Compare Access", href: "/compare", icon: GitCompare },
         { name: "Batch Provision", href: "/batch", icon: FileSpreadsheet },
         { name: "Workgroups", href: "/workgroup", icon: Hammer },
+        { name: "Rule Runner", href: "/rule-runner", icon: Terminal },
     ];
 
     return (
@@ -24,7 +26,7 @@ export default function Header() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex h-16 items-center justify-between">
                     {/* Logo Section */}
-                    <div className="flex items-center gap-3">
+                    <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                         <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
                             <Anchor className="h-5 w-5 text-indigo-400" />
                         </div>
@@ -36,28 +38,65 @@ export default function Header() {
                                 Bridging functional gaps in SailPoint
                             </span>
                         </div>
-                    </div>
+                    </Link>
 
                     {/* Navigation - only if logged in */}
                     {isAuthenticated && (
-                        <nav className="hidden md:flex items-center gap-1">
-                            {navItems.map((item) => {
-                                const Icon = item.icon;
-                                const isActive = pathname === item.href;
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
-                                            ? "bg-white/10 text-white shadow-sm border border-white/5"
-                                            : "text-slate-400 hover:text-white hover:bg-white/5"
-                                            }`}
-                                    >
-                                        <Icon className="h-4 w-4" />
-                                        {item.name}
-                                    </Link>
-                                );
-                            })}
+                        <nav className="hidden md:flex items-center gap-6">
+
+                            {/* Dashboard */}
+                            <Link
+                                href="/dashboard"
+                                className={`flex items-center gap-2 text-sm font-medium transition-colors ${pathname === "/dashboard" ? "text-white" : "text-slate-400 hover:text-white"
+                                    }`}
+                            >
+                                <LayoutDashboard className="h-4 w-4" />
+                                Dashboard
+                            </Link>
+
+                            {/* Tools Dropdown */}
+                            <div className="relative group">
+                                <button
+                                    onClick={() => setToolsOpen(!toolsOpen)}
+                                    className={`flex items-center gap-2 text-sm font-medium transition-colors focus:outline-none ${toolsItems.some(t => t.href === pathname) ? "text-white" : "text-slate-400 hover:text-white"
+                                        }`}
+                                >
+                                    Tools
+                                    <ChevronDown className="h-3 w-3 transition-transform group-hover:rotate-180" />
+                                </button>
+
+                                {/* Dropdown Menu (Hover based for desktop) */}
+                                <div className="absolute top-full left-0 mt-2 w-56 rounded-xl border border-white/10 bg-slate-900 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
+                                    <div className="p-1">
+                                        {toolsItems.map((item) => {
+                                            const Icon = item.icon;
+                                            return (
+                                                <Link
+                                                    key={item.href}
+                                                    href={item.href}
+                                                    className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm transition-colors ${pathname === item.href
+                                                            ? "bg-indigo-500/10 text-indigo-400"
+                                                            : "text-slate-400 hover:bg-white/5 hover:text-white"
+                                                        }`}
+                                                >
+                                                    <Icon className="h-4 w-4" />
+                                                    {item.name}
+                                                </Link>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* About */}
+                            <Link
+                                href="/about"
+                                className={`flex items-center gap-2 text-sm font-medium transition-colors ${pathname === "/about" ? "text-white" : "text-slate-400 hover:text-white"
+                                    }`}
+                            >
+                                <Info className="h-4 w-4" />
+                                About
+                            </Link>
                         </nav>
                     )}
 

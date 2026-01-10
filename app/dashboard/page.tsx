@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/ui/auth-context";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, User, Mail, Briefcase, UserCheck, XCircle, GitCompare, GitBranch, Plus, FileText } from "lucide-react";
+import { Loader2, User, Mail, Briefcase, UserCheck, XCircle, GitCompare, GitBranch, Plus, FileText, Hammer, Terminal } from "lucide-react";
 
 export default function Dashboard() {
     const { url, username, password, isAuthenticated } = useAuth();
@@ -109,6 +109,28 @@ export default function Dashboard() {
                                         <h3 className="font-semibold text-slate-200">Batch Provisioning</h3>
                                     </div>
                                     <p className="text-sm text-slate-400">Upload CSV to bulk provision access. Support for standard LCM.</p>
+                                </Link>
+
+                                {/* Workgroups Card */}
+                                <Link href="/workgroup" className="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 p-6 hover:bg-slate-900 transition-all hover:border-orange-500/50 hover:shadow-lg hover:shadow-orange-500/10">
+                                    <div className="flex items-center gap-4 mb-3">
+                                        <div className="p-3 rounded-lg bg-orange-500/10 text-orange-400 group-hover:bg-orange-500/20 group-hover:text-orange-300 transition-colors">
+                                            <Hammer className="h-6 w-6" />
+                                        </div>
+                                        <h3 className="font-semibold text-slate-200">Workgroup Manager</h3>
+                                    </div>
+                                    <p className="text-sm text-slate-400">Create and manage Workgroups, assign capabilities, and bulk import.</p>
+                                </Link>
+
+                                {/* Rule Runner Card */}
+                                <Link href="/rule-runner" className="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 p-6 hover:bg-slate-900 transition-all hover:border-pink-500/50 hover:shadow-lg hover:shadow-pink-500/10">
+                                    <div className="flex items-center gap-4 mb-3">
+                                        <div className="p-3 rounded-lg bg-pink-500/10 text-pink-400 group-hover:bg-pink-500/20 group-hover:text-pink-300 transition-colors">
+                                            <Terminal className="h-6 w-6" />
+                                        </div>
+                                        <h3 className="font-semibold text-slate-200">Rule Runner</h3>
+                                    </div>
+                                    <p className="text-sm text-slate-400">Interactive sandbox to execute BeanShell rules and debug logic.</p>
                                 </Link>
 
                                 {/* Placeholder for future tools */}
