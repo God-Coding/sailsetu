@@ -75,8 +75,8 @@ export default function Header() {
                                                     key={item.href}
                                                     href={item.href}
                                                     className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm transition-colors ${pathname === item.href
-                                                            ? "bg-indigo-500/10 text-indigo-400"
-                                                            : "text-slate-400 hover:bg-white/5 hover:text-white"
+                                                        ? "bg-indigo-500/10 text-indigo-400"
+                                                        : "text-slate-400 hover:bg-white/5 hover:text-white"
                                                         }`}
                                                 >
                                                     <Icon className="h-4 w-4" />
@@ -103,9 +103,11 @@ export default function Header() {
                     {/* User Profile / Logout */}
                     {isAuthenticated && (
                         <div className="flex items-center gap-4">
-                            <div className="text-right hidden sm:block">
-                                <p className="text-xs text-slate-400">Signed in as</p>
-                                <p className="text-sm font-medium text-white">{username || "Admin"}</p>
+                            <div className="hidden sm:block">
+                                <Link href="/profile" className="flex flex-col items-end group">
+                                    <p className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">Signed in as</p>
+                                    <p className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors">{username || "Admin"}</p>
+                                </Link>
                             </div>
                             <button
                                 onClick={logout}
