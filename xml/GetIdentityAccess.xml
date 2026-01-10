@@ -1,0 +1,98 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+
+<sailpoint>
+  <Workflow name="GetIdentityAccess" type="Research" libraries="Identity">
+    <Variable input="true" name="identityName">
+      <Description>Name of the identity to scan.</Description>
+    </Variable>
+
+    <Variable name="accessList" output="true">
+      <Description>List of entitlements and roles found.</Description>
+    </Variable>
+
+    <Step icon="Start" name="Start" posX="25" posY="10">
+      <Transition to="Collect Access"/>
+    </Step>
+
+    <Step name="Collect Access" posX="150" posY="10" resultVariable="accessList">
+      <Script>
+        <Source>
+          <![CDATA[
+          import sailpoint.object.Identity;
+          import sailpoint.object.Bundle;
+          import sailpoint.object.Link;
+          import sailpoint.object.Reference;
+          import sailpoint.object.Entitlement;
+          import java.util.ArrayList;
+          import java.util.List;
+          import java.util.Map;
+          import java.util.HashMap;
+
+          List results = new ArrayList();
+
+          if (identityName != null) {
+              Identity id = context.getObjectByName(Identity.class, identityName);
+              if (id != null) {
+                  // 1. Assigned Roles (Bundles)
+                  List assigned = id.getAssignedRoles();
+                  if (assigned != null) {
+                      for (Bundle b : assigned) {
+                          Map item = new HashMap();
+                          item.put("type", "Assigned Role");
+                          item.put("name", b.getDisplayName() != null ? b.getDisplayName() : b.getName());
+                          item.put("value", b.getName());
+                          results.add(item);
+                      }
+                  }
+
+                  // 2. Detected Roles
+                  List detected = id.getDetectedRoles();
+                  if (detected != null) {
+                      for (Bundle b : detected) {
+                          Map item = new HashMap();
+                          item.put("type", "Detected Role");
+                          item.put("name", b.getDisplayName() != null ? b.getDisplayName() : b.getName());
+                          item.put("value", b.getName());
+                          results.add(item);
+                      }
+                  }
+
+                  // 3. Entitlements (Granular) & Accounts
+                  List links = id.getLinks();
+                  if (links != null) {
+                      for (Link l : links) {
+                          String appName = l.getApplicationName();
+                          
+                          // A. Parse granular entitlements using the official API
+                          List linkEntitlements = l.getEntitlements(null, null);
+                          if (linkEntitlements != null && !linkEntitlements.isEmpty()) {
+                              for (Entitlement ent : linkEntitlements) {
+                                  Map item = new HashMap();
+                                  item.put("type", "Entitlement");
+                                  item.put("name", appName + " : " + ent.getAttributeName());
+                                  item.put("value", ent.getAttributeValue());
+                                  results.add(item);
+                              }
+                          } else {
+                              // Fallback: If no granular entitlements, just show the account
+                              Map item = new HashMap();
+                              item.put("type", "Account");
+                              item.put("name", appName + " Account");
+                              item.put("value", l.getNativeIdentity());
+                              results.add(item);
+                          }
+                      }
+                  }
+              }
+          }
+          return results;
+          ]]>
+        </Source>
+      </Script>
+      <Transition to="Stop"/>
+    </Step>
+
+    <Step icon="Stop" name="Stop" posX="300" posY="10"/>
+  </Workflow>
+</sailpoint>

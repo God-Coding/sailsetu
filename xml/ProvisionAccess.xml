@@ -1,0 +1,227 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+
+<sailpoint>
+  <Workflow name="ProvisionAccess" type="LCMProvisioning" libraries="Identity,Role,LCM,BatchRequest">
+    <Variable input="true" name="identityName">
+      <Description>Resulting identity to receive access.</Description>
+    </Variable>
+    <Variable input="true" name="accessItems">
+      <Description>List of maps [{type, name, value, application}] to provision.</Description>
+    </Variable>
+    <Variable input="true" name="approvalScheme">
+      <Description>The approval scheme to use (e.g., 'none' for direct access).</Description>
+    </Variable>
+
+    <Variable name="plan" output="true" />
+    <Variable name="flow" initializer="AccessRequest" />
+    <Variable name="identityDisplayName" />
+    <Variable name="identityRequestId" output="true" />
+    <Variable name="project" output="true" />
+    <Variable name="debugTrace" output="true" />
+
+    <Step icon="Start" name="Start" posX="25" posY="10">
+      <Transition to="Build Plan"/>
+    </Step>
+
+    <Step name="Build Plan" posX="150" posY="10" resultVariable="plan">
+      <Script>
+        <Source>
+          <![CDATA[
+          import sailpoint.object.Identity;
+          import sailpoint.object.ProvisioningPlan;
+          import sailpoint.object.ProvisioningPlan.AccountRequest;
+          import sailpoint.object.ProvisioningPlan.AttributeRequest;
+          import sailpoint.object.ProvisioningPlan.Operation;
+          import sailpoint.api.SailPointContext;
+          import java.util.List;
+          import java.util.Map;
+          import java.util.ArrayList;
+          
+          String trace = "Start Build Plan. ";
+          workflow.put("debugTrace", trace);
+
+          ProvisioningPlan plan = new ProvisioningPlan();
+          plan.setIdentity(context.getObjectByName(Identity.class, identityName));
+          
+          List itemsToProcess = new ArrayList();
+
+          if (accessItems != null) {
+              if (accessItems instanceof String) {
+                   String json = (String) accessItems;
+                       try {
+                           // Use org.json as primary parser (standard in IIQ)
+                           trace += "Parsing with org.json... ";
+                           org.json.JSONArray ja = new org.json.JSONArray(json);
+                           for(int i=0; i<ja.length(); i++) {
+                               org.json.JSONObject jo = ja.getJSONObject(i);
+                               Map m = new java.util.HashMap();
+                               java.util.Iterator keys = jo.keys();
+                               while(keys.hasNext()) {
+                                   String k = (String)keys.next();
+                                   Object v = jo.get(k);
+                                   m.put(k, v);
+                               }
+                               itemsToProcess.add(m);
+                           }
+                           trace += "Parsed " + itemsToProcess.size() + " items via org.json. ";
+                       } catch (Exception e) {
+                           trace += "JSON Parse Syntax Error: " + e.toString() + ". ";
+                       }
+                   workflow.put("debugTrace", trace);
+
+              } else if (accessItems instanceof List) {
+                  itemsToProcess = accessItems;
+                  trace += "Input is already a List. ";
+                  workflow.put("debugTrace", trace);
+              } else {
+                  trace += "Input type unknown: " + accessItems.getClass().getName() + ". ";
+                  workflow.put("debugTrace", trace);
+              }
+          } else {
+              trace += "accessItems is null. ";
+              workflow.put("debugTrace", trace);
+          }
+          
+          trace += "Items to process: " + (itemsToProcess != null ? itemsToProcess.size() : "null") + ". ";
+          
+          if (itemsToProcess != null) {
+              for (Object obj : itemsToProcess) {
+                  Map item = null;
+                  if (obj instanceof Map) {
+                      item = (Map) obj;
+                  }
+                  
+                  if (item != null) {
+                      String type = (String) item.get("type");
+                      String value = (String) item.get("value");
+                      String name = (String) item.get("name");
+                      String opStr = (String) item.get("op");
+                      String application = (String) item.get("application"); 
+
+                      ProvisioningPlan.Operation operation = ProvisioningPlan.Operation.Add;
+                      if (opStr != null && "Remove".equalsIgnoreCase(opStr)) {
+                          operation = ProvisioningPlan.Operation.Remove;
+                      }
+                      
+                      if (type != null) {
+                          String typeLower = type.toLowerCase();
+                          if (typeLower.contains("role") || typeLower.contains("bundle")) {
+                          AccountRequest acctReq = plan.getAccountRequest("IIQ");
+                          if (acctReq == null) { 
+                              acctReq = new AccountRequest();
+                              acctReq.setApplication("IIQ");
+                              acctReq.setNativeIdentity(identityName);
+                              acctReq.setOperation(AccountRequest.Operation.Modify);
+                              plan.add(acctReq);
+                          }
+                          acctReq.add(new AttributeRequest("assignedRoles", ProvisioningPlan.Operation.valueOf(operation.toString()), value));
+                              
+                          } else if (typeLower.contains("entitlement")) {
+                               String appName = null;
+                               String attrName = null;
+    
+                               if (application != null && name != null) {
+                                   appName = application;
+                                   attrName = name;
+                               } else if (name != null && name.contains(":")) {
+                                   String[] parts = name.split(":");
+                                   if (parts.length >= 2) {
+                                       appName = parts[0].trim();
+                                       attrName = parts[1].trim();
+                                   }
+                               } else if (application != null && name != null) {
+                                   appName = application;
+                                   attrName = name;
+                               }
+    
+                               if (appName != null && attrName != null) {
+                                   AccountRequest acctReq = plan.getAccountRequest(appName);
+                                   if (acctReq == null) {
+                                       acctReq = new AccountRequest();
+                                       acctReq.setApplication(appName);
+                                       acctReq.setNativeIdentity(identityName);
+                                       acctReq.setOperation(AccountRequest.Operation.Modify);
+                                       plan.add(acctReq);
+                                   }
+                                   acctReq.add(new AttributeRequest(attrName, ProvisioningPlan.Operation.valueOf(operation.toString()), value));
+                               }
+                          }
+                      }
+                  }
+              }
+          }
+          
+          trace += "Plan built. with " + (plan.getAccountRequests() != null ? plan.getAccountRequests().size() : 0) + " requests. ";
+          workflow.put("debugTrace", trace);
+          
+          return plan;
+          ]]>
+        </Source>
+      </Script>
+      <Transition to="Provision"/>
+    </Step>
+
+    <Step name="Provision" icon="Provision" posX="300" posY="10">
+       <WorkflowRef>
+         <Reference class="sailpoint.object.Workflow" name="LCM Provisioning"/>
+       </WorkflowRef>
+       <Arg name="plan" value="ref:plan"/>
+       <Arg name="flow" value="ref:flow"/>
+       <Arg name="identityName" value="ref:identityName"/>
+       <Arg name="approvalScheme" value="ref:approvalScheme"/>
+       <Arg name="source" value="Batch"/>
+       <Arg name="optimisticProvisioning" value="true"/>
+       <Return name="identityRequestId" to="identityRequestId"/>
+       <Return name="project" to="project"/>
+       <Transition to="DebugOutput"/>
+    </Step>
+
+    <Step name="DebugOutput" posX="400" posY="10">
+      <Script>
+        <Source>
+          <![CDATA[
+            import sailpoint.object.IdentityRequest;
+            import sailpoint.object.QueryOptions;
+            import sailpoint.object.Filter;
+            
+            String trace = (String) workflow.get("debugTrace");
+            if (trace == null) trace = "";
+            trace += "Entered Debug Step. ";
+            
+            trace += "ID from Subprocess: " + identityRequestId + ". ";
+
+            if (identityRequestId == null) {
+                if (project != null && project.getIdentityRequestId() != null) {
+                     identityRequestId = project.getIdentityRequestId();
+                     trace += "Found ID in project: " + identityRequestId + ". ";
+                } else {
+                     trace += "Project is " + (project == null ? "null" : "present but no ID") + ". ";
+                     
+                     // Fallback
+                     QueryOptions qo = new QueryOptions();
+                     qo.addFilter(Filter.eq("targetDisplayName", identityName));
+                     qo.setOrderBy("created");
+                     qo.setOrderAscending(false);
+                     List reqs = context.getObjects(IdentityRequest.class, qo);
+                     if (reqs != null && reqs.size() > 0) {
+                         IdentityRequest ir = (IdentityRequest) reqs.get(0);
+                         identityRequestId = ir.getName(); 
+                         trace += "Found ID via Query: " + identityRequestId + ". ";
+                     } else {
+                         trace += "No IdentityRequest found via Query. ";
+                     }
+                }
+            }
+            
+            workflow.put("debugTrace", trace);
+            workflow.put("identityRequestId", identityRequestId);
+          ]]>
+        </Source>
+      </Script>
+      <Transition to="Stop"/>
+    </Step>
+
+    <Step icon="Stop" name="Stop" posX="450" posY="10"/>
+  </Workflow>
+</sailpoint>
