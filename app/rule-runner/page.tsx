@@ -216,6 +216,7 @@ return "User not found";`);
                                     fontSize: 14,
                                     scrollBeyondLastLine: false,
                                     automaticLayout: true,
+                                    wordWrap: "on",
                                     padding: { top: 16, bottom: 16 }
                                 }}
                             />
