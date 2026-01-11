@@ -1,0 +1,110 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow explicitTransitions="true" name="RepairIdentityRequest" type="Maintenance">
+  <Variable input="true" name="targetIdentity">
+    <Description>The name of the identity to scan for stuck requests.</Description>
+  </Variable>
+  <Variable name="maintenanceLog" output="true">
+    <Description>Log of actions taken.</Description>
+  </Variable>
+
+  <Step icon="Start" name="Start" posX="28" posY="10">
+    <Transition to="Scan and Repair"/>
+  </Step>
+
+  <Step icon="Task" name="Scan and Repair" posX="176" posY="10" resultVariable="maintenanceLog">
+    <Script>
+      <Source>
+        <![CDATA[
+        import sailpoint.object.Identity;
+        import sailpoint.object.IdentityRequest;
+        import sailpoint.object.ProvisioningProject;
+        import sailpoint.object.WorkflowCase;
+        import sailpoint.object.Filter;
+        import sailpoint.object.QueryOptions;
+        import java.util.List;
+        import java.util.ArrayList;
+
+        StringBuffer logBuffer = new StringBuffer();
+        logBuffer.append("Starting maintenance for user: " + targetIdentity + "\n");
+
+        if (targetIdentity == null) {
+            return "Error: No target identity provided.";
+        }
+
+        Identity id = context.getObjectByName(Identity.class, targetIdentity);
+        if (id == null) {
+            return "Error: Identity " + targetIdentity + " not found.";
+        }
+
+        // 1. Find Active Requests
+        QueryOptions qo = new QueryOptions();
+        qo.addFilter(Filter.eq("targetId", id.getId()));
+        qo.addFilter(Filter.ne("executionStatus", IdentityRequest.ExecutionStatus.Terminated));
+        qo.addFilter(Filter.ne("executionStatus", IdentityRequest.ExecutionStatus.Completed));
+        
+        // Also verify verificationStatus if needed, but usually ExecutionStatus is the key
+        
+        List requests = context.getObjects(IdentityRequest.class, qo);
+        
+        if (requests == null || requests.isEmpty()) {
+            logBuffer.append("No active Identity Requests found for " + targetIdentity + ".\n");
+        } else {
+            logBuffer.append("Found " + requests.size() + " active requests.\n");
+
+            for (IdentityRequest req : requests) {
+                logBuffer.append("  - Inspecting Request: " + req.getName() + " [" + req.getExecutionStatus() + "]\n");
+                
+                // Check Provisioning Project
+                ProvisioningProject project = req.getProvisioningProject();
+                if (project != null) {
+                     // Check if project is complete
+                     String projStatus = project.toXml(); // simplified check or use getters if available in this version
+                     // Actually, check if compiled
+                     
+                     // Often 'stuck' means the WorkflowCase is suspended or lost
+                }
+
+                String caseId = req.getWfCaseId();
+                if (caseId != null) {
+                    WorkflowCase wfCase = context.getObjectById(WorkflowCase.class, caseId);
+                    if (wfCase != null) {
+                        logBuffer.append("    - Associated WorkflowCase: " + wfCase.getName() + " Status: " + wfCase.getState() + "\n");
+                        
+                        // Attempt to Wake if stuck
+                        /*
+                        // This logic is risky if we don't know the exact reason. 
+                        // But standard maintenance usually just checks if the case is done.
+                        if (wfCase.getState() != null && wfCase.getState().equals("Open")) {
+                             // It might just be running slow.
+                             logBuffer.append("    - Case is Open. No action taken by default.\n");
+                        }
+                        */
+                    } else {
+                        logBuffer.append("    - WARNING: WorkflowCase ID " + caseId + " referenced but not found in DB.\n");
+                        // This is a Zombie Request.
+                        // We might want to terminate it?
+                        // req.setExecutionStatus(IdentityRequest.ExecutionStatus.Terminated);
+                        // context.saveObject(req);
+                        // logBuffer.append("    - REPAIR: Terminated Zombie Request.\n");
+                    }
+                } else {
+                     logBuffer.append("    - No WorkflowCase ID associated.\n");
+                }
+            }
+        }
+        
+        // 2. Refresh Identity?
+        // Sometimes running a Refresh clears transient states.
+        
+        context.commitTransaction();
+        
+        return logBuffer.toString();
+        ]]>
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+  </Step>
+
+  <Step icon="Stop" name="Stop" posX="350" posY="10"/>
+</Workflow>
