@@ -1,0 +1,285 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="TRAKK Provisioning Rule" type="JDBCProvision">
+  <Description>
+    Provisioning rule for the TRAKK JDBC Application.
+    Handles Create, Modify (Add/Remove Entitlements), Enable, Disable, and Delete.
+    
+    Schema Assumptions:
+    - users (id, username, firstname, lastname, email, status)
+    - capabilities (id, capability, description) -> 'id' is a Foreign Key to users.id
+  </Description>
+  <Signature returnType="ProvisioningResult">
+    <Inputs>
+      <Argument name="log">
+        <Description>
+          The log object associated with the SailPointContext.
+        </Description>
+      </Argument>
+      <Argument name="context">
+        <Description>
+          A sailpoint.api.SailPointContext object that can be used to query the database if necessary.
+        </Description>
+      </Argument>
+      <Argument name="application">
+        <Description>
+          The application object that links to this rule.
+        </Description>
+      </Argument>
+      <Argument name="schema">
+        <Description>
+          The AppSchema object for the account.
+        </Description>
+      </Argument>
+      <Argument name="connection">
+        <Description>
+          A connection object to the database.
+        </Description>
+      </Argument>
+      <Argument name="plan">
+        <Description>
+          The ProvisioningPlan object on its way to the Connector.
+        </Description>
+      </Argument>
+      <Argument name="request">
+        <Description>
+          The AccountRequest object being processed.
+        </Description>
+      </Argument>
+    </Inputs>
+    <Returns>
+      <Argument name="result">
+        <Description>
+          A ProvisioningResult object containing the status (committed, failed, retry) and any errors.
+        </Description>
+      </Argument>
+    </Returns>
+  </Signature>
+  <Source>
+  <![CDATA[
+  import java.sql.Connection;
+  import java.sql.PreparedStatement;
+  import java.sql.SQLException;
+  import java.sql.Types;
+  import java.util.List;
+  import sailpoint.object.ProvisioningPlan;
+  import sailpoint.object.ProvisioningPlan.AccountRequest;
+  import sailpoint.object.ProvisioningPlan.AttributeRequest;
+  import sailpoint.object.ProvisioningResult;
+
+  ProvisioningResult result = new ProvisioningResult();
+
+  // Fix: Extract AccountRequest from plan if 'request' is not passed directly
+  AccountRequest request = null;
+  if (plan != null) {
+      List acts = plan.getAccountRequests();
+      if (acts != null && !acts.isEmpty()) {
+          request = (AccountRequest) acts.get(0);
+      }
+  }
+
+  if (request == null) {
+      return result;
+  }
+
+  String nativeIdentity = request.getNativeIdentity();
+  String operation = request.getOperation() != null ? request.getOperation().toString() : "";
+
+  log.debug("TRAKK Provisioning: Op=" + operation + ", ID=" + nativeIdentity);
+
+  try {
+      if (AccountRequest.Operation.Create.equals(request.getOperation())) {
+          // --- CREATE ACCOUNT ---
+          // Generate a new ID if nativeIdentity is missing (or use the one provided by plan)
+          // For this example, we assume nativeIdentity is populated or we generate one.
+          
+          String newId = nativeIdentity;
+          if (newId == null) {
+               // Generate simple hex ID like the screenshot "1b2c3a4e" (8 chars)
+               newId = Long.toHexString(Double.doubleToLongBits(Math.random())).substring(0, 8);
+          }
+          
+          String username = (String) request.getAttribute("username"); // IdentityIQ Name
+          if (username == null) username = "unknown";
+          
+          String firstname = (String) request.getAttribute("firstname");
+          String lastname = (String) request.getAttribute("lastname");
+          String email = (String) request.getAttribute("email");
+          
+          PreparedStatement stmt = connection.prepareStatement(
+              "INSERT INTO users (id, username, firstname, lastname, email, status) VALUES (?, ?, ?, ?, ?, ?)"
+          );
+          
+          stmt.setString(1, newId);
+          stmt.setString(2, username);
+          stmt.setString(3, firstname);
+          stmt.setString(4, lastname);
+          stmt.setString(5, email);
+          stmt.setString(6, "Active");
+          
+          stmt.executeUpdate();
+          stmt.close();
+          
+          // If there are attribute requests (initial entitlements) in the create plan
+          if (request.getAttributeRequests() != null) {
+              for (AttributeRequest attr : request.getAttributeRequests()) {
+                  if ("capability".equals(attr.getName())) {
+                      Object val = attr.getValue();
+                      if (val instanceof List) {
+                          for (String v : (List) val) {
+                              if (v != null) {
+                                  PreparedStatement stmt2 = connection.prepareStatement(
+                                     "INSERT INTO capabilities (id, capability, description) VALUES (?, ?, ?)"
+                                  );
+                                  stmt2.setString(1, newId);
+                                  stmt2.setString(2, v);
+                                  stmt2.setString(3, "Added by IIQ");
+                                  stmt2.executeUpdate();
+                                  stmt2.close();
+                              }
+                          }
+                      } else {
+                          String v = (String) val;
+                          if (v != null) {
+                              PreparedStatement stmt2 = connection.prepareStatement(
+                                 "INSERT INTO capabilities (id, capability, description) VALUES (?, ?, ?)"
+                              );
+                              stmt2.setString(1, newId);
+                              stmt2.setString(2, v);
+                              stmt2.setString(3, "Added by IIQ");
+                              stmt2.executeUpdate();
+                              stmt2.close();
+                          }
+                      }
+                  }
+              }
+          }
+          
+          result.setStatus(ProvisioningResult.STATUS_COMMITTED);
+          
+      } else if (AccountRequest.Operation.Modify.equals(request.getOperation())) {
+          // --- MODIFY ACCOUNT ---
+          
+          List attrReqs = request.getAttributeRequests();
+          if (attrReqs != null) {
+              for (AttributeRequest attr : attrReqs) {
+                   String name = attr.getName();
+                   String op = attr.getOperation().toString();
+                   Object val = attr.getValue();
+                   
+                       if ("capability".equalsIgnoreCase(name)) {
+                           // Handle Entitlements
+                           if (val instanceof List) {
+                               for (String v : (List) val) {
+                                   if ("Add".equals(op)) {
+                                       if (v != null) {
+                                            PreparedStatement stmt = connection.prepareStatement(
+                                                "INSERT INTO capabilities (id, capability, description) VALUES (?, ?, ?)"
+                                            );
+                                            stmt.setString(1, nativeIdentity);
+                                            stmt.setString(2, v);
+                                            stmt.setString(3, "Added by IIQ"); 
+                                            stmt.executeUpdate();
+                                            stmt.close();
+                                       }
+                                   } else if ("Remove".equals(op)) {
+                                       if (v != null) {
+                                            PreparedStatement stmt = connection.prepareStatement(
+                                                "DELETE FROM capabilities WHERE id = ? AND capability = ?"
+                                            );
+                                            stmt.setString(1, nativeIdentity);
+                                            stmt.setString(2, v);
+                                            stmt.executeUpdate();
+                                            stmt.close();
+                                       }
+                                   }-
+                               }
+                           } else {
+                               String v = (String) val;
+                               if ("Add".equals(op)) {
+                                   if (v != null) {
+                                        PreparedStatement stmt = connection.prepareStatement(
+                                            "INSERT INTO capabilities (id, capability, description) VALUES (?, ?, ?)"
+                                        );
+                                        stmt.setString(1, nativeIdentity);
+                                        stmt.setString(2, v);
+                                        stmt.setString(3, "Added by IIQ"); 
+                                        stmt.executeUpdate();
+                                        stmt.close();
+                                   }
+                               } else if ("Remove".equals(op)) {
+                                   if (v != null) {
+                                        PreparedStatement stmt = connection.prepareStatement(
+                                            "DELETE FROM capabilities WHERE id = ? AND capability = ?"
+                                        );
+                                        stmt.setString(1, nativeIdentity);
+                                        stmt.setString(2, v);
+                                        stmt.executeUpdate();
+                                        stmt.close();
+                                   }
+                               }
+                           }
+                       } else {
+                       // Handle Scalar Updates (e.g. update email, lastname)
+                       // Assuming simplistic single value update
+                       if ("IIQDisabled".equals(name)) {
+                           // Skip handled by Enable/Disable ops usually, but if attribute-driven:
+                           continue;
+                       }
+                       
+                       // Only update known columns
+                       if (name.equals("email") || name.equals("firstname") || name.equals("lastname")) {
+                            PreparedStatement stmt = connection.prepareStatement(
+                                "UPDATE users SET " + name + " = ? WHERE id = ?"
+                            );
+                            stmt.setString(1, (String) val);
+                            stmt.setString(2, nativeIdentity);
+                            stmt.executeUpdate();
+                            stmt.close();
+                       }
+                   }
+              }
+          }
+          result.setStatus(ProvisioningResult.STATUS_COMMITTED);
+          
+      } else if (AccountRequest.Operation.Enable.equals(request.getOperation())) {
+           PreparedStatement stmt = connection.prepareStatement("UPDATE users SET status = 'Active' WHERE id = ?");
+           stmt.setString(1, nativeIdentity);
+           stmt.executeUpdate();
+           stmt.close();
+           result.setStatus(ProvisioningResult.STATUS_COMMITTED);
+           
+      } else if (AccountRequest.Operation.Disable.equals(request.getOperation())) {
+           PreparedStatement stmt = connection.prepareStatement("UPDATE users SET status = 'Disabled' WHERE id = ?");
+           stmt.setString(1, nativeIdentity);
+           stmt.executeUpdate();
+           stmt.close();
+           result.setStatus(ProvisioningResult.STATUS_COMMITTED);
+           
+      } else if (AccountRequest.Operation.Delete.equals(request.getOperation())) {
+           // Delete entitlements first (FK constraint usually requires this)
+           PreparedStatement stmt = connection.prepareStatement("DELETE FROM capabilities WHERE id = ?");
+           stmt.setString(1, nativeIdentity);
+           stmt.executeUpdate();
+           stmt.close();
+           
+           // Delete user
+           stmt = connection.prepareStatement("DELETE FROM users WHERE id = ?");
+           stmt.setString(1, nativeIdentity);
+           stmt.executeUpdate();
+           stmt.close();
+           
+           result.setStatus(ProvisioningResult.STATUS_COMMITTED);
+      }
+
+  } catch (SQLException e) {
+      result.setStatus(ProvisioningResult.STATUS_FAILED);
+      result.addError(e);
+      log.error("TRAKK Provisioning Error: " + e.getMessage());
+  }
+
+  return result;
+
+  ]]>
+  </Source>
+</Rule>

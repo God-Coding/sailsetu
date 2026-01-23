@@ -10,7 +10,7 @@ export default function RequestMaintenance() {
     const router = useRouter();
 
     // Inputs
-    const [targetIdentity, setTargetIdentity] = useState("");
+    const [requestId, setRequestId] = useState("");
 
     // State
     const [loading, setLoading] = useState(false);
@@ -23,18 +23,18 @@ export default function RequestMaintenance() {
     }, [isAuthenticated, router]);
 
     const runMaintenance = async () => {
-        if (!targetIdentity) return;
+        if (!requestId) return;
 
         setLoading(true);
         setLogs([]);
         setResults([]);
 
         const inputList = [
-            { key: "targetIdentity", value: targetIdentity }
+            { key: "requestId", value: requestId }
         ];
 
         try {
-            setLogs(prev => ["Launching targeted maintenance workflow...", ...prev]);
+            setLogs(prev => [`Launching maintenance for Request #${requestId}...`, ...prev]);
 
             const res = await fetch("/api/workflow/launch", {
                 method: "POST",
@@ -49,7 +49,7 @@ export default function RequestMaintenance() {
             const data = await res.json();
 
             if (data.success) {
-                setLogs(prev => ["Workflow completed successfully.", ...prev]);
+                setLogs(prev => ["Workflow completed.", ...prev]);
 
                 // Parse attributes if any specific returns
                 if (data.launchResult && data.launchResult.attributes) {
@@ -81,10 +81,10 @@ export default function RequestMaintenance() {
                 <div className="mb-8 border-b border-white/5 pb-6">
                     <h1 className="text-3xl font-extrabold bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent flex items-center gap-3">
                         <Wrench className="h-8 w-8 text-emerald-400" />
-                        Request Maintenance (User Scope)
+                        Request Maintenance (ID Scope)
                     </h1>
                     <p className="text-slate-400 text-sm mt-2">
-                        Targeted repair for stuck Identity Requests. Runs the maintenance logic for a <strong>single identity</strong> instead of the entire system.
+                        Targeted repair for specific Access Requests. Enter the Request ID (e.g., '00000002') to inspect and repair.
                     </p>
                 </div>
 
@@ -92,22 +92,22 @@ export default function RequestMaintenance() {
                     {/* Control Panel */}
                     <div className="md:col-span-1 space-y-6">
                         <div className="bg-slate-900/50 backdrop-blur-xl border border-white/10 p-6 rounded-2xl shadow-xl">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Target Identity</label>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Access Request ID</label>
                             <input
                                 type="text"
                                 className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                                placeholder="e.g. james.smith"
-                                value={targetIdentity}
-                                onChange={(e) => setTargetIdentity(e.target.value)}
+                                placeholder="e.g. 0000002"
+                                value={requestId}
+                                onChange={(e) => setRequestId(e.target.value)}
                             />
 
                             <button
                                 onClick={runMaintenance}
-                                disabled={loading || !targetIdentity}
+                                disabled={loading || !requestId}
                                 className="w-full mt-6 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
                                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="h-5 w-5 fill-current" />}
-                                Run Maintenance
+                                Inspect & Repair
                             </button>
                         </div>
 
@@ -143,10 +143,10 @@ export default function RequestMaintenance() {
                                 )}
                                 {logs.map((log, i) => (
                                     <div key={i} className={`p-2 rounded border-l-2 ${log.toLowerCase().includes("error") || log.toLowerCase().includes("exception")
-                                            ? "border-rose-500 bg-rose-500/5 text-rose-300"
-                                            : log.toLowerCase().includes("success") || log.toLowerCase().includes("fixed")
-                                                ? "border-emerald-500 bg-emerald-500/5 text-emerald-300"
-                                                : "border-slate-700 text-slate-300"
+                                        ? "border-rose-500 bg-rose-500/5 text-rose-300"
+                                        : log.toLowerCase().includes("success") || log.toLowerCase().includes("fixed")
+                                            ? "border-emerald-500 bg-emerald-500/5 text-emerald-300"
+                                            : "border-slate-700 text-slate-300"
                                         }`}>
                                         {log}
                                     </div>

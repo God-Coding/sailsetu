@@ -379,7 +379,7 @@ ${accountRequestsXML}
                 {/* Input Section - Glass Card with Loading Overlay */}
                 {/* Notification Toast */}
                 {notification && (
-                    <div className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-xl shadow-2xl border backdrop-blur-md animate-in slide-in-from-right fade-in duration-300 ${notification.type === 'success'
+                    <div className={`fixed top-24 right-4 z-[100] px-6 py-4 rounded-xl shadow-2xl border backdrop-blur-md animate-in slide-in-from-right fade-in duration-300 ${notification.type === 'success'
                         ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                         : 'bg-red-500/10 border-red-500/20 text-red-400'
                         }`}>

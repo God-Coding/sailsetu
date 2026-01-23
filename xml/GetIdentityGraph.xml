@@ -1,0 +1,227 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+
+<sailpoint>
+  <Workflow name="GetIdentityGraph" type="Research" libraries="Identity">
+    <Variable input="true" name="identityName">
+      <Description>Name of the identity to map.</Description>
+    </Variable>
+
+    <Variable name="graphData" output="true">
+      <Description>JSON string of nodes and edges.</Description>
+    </Variable>
+    
+    <Variable name="accessDetails" output="true">
+      <Description>JSON list of detailed access for CSV export.</Description>
+    </Variable>
+
+    <Step icon="Start" name="Start" posX="25" posY="10">
+      <Transition to="Build Graph"/>
+    </Step>
+
+    <Step name="Build Graph" posX="150" posY="10" resultVariable="graphData">
+      <Script>
+        <Source>
+          <![CDATA[
+          import sailpoint.object.Identity;
+          import sailpoint.object.Bundle;
+          import sailpoint.object.Link;
+          import sailpoint.object.Profile;
+          import sailpoint.object.Filter;
+          import sailpoint.object.EntitlementGroup;
+          import java.util.ArrayList;
+          import java.util.List;
+          import java.util.Map;
+          import java.util.HashMap;
+          import java.util.Set;
+          import java.util.HashSet;
+          import sailpoint.tools.util.ListOps;
+
+          // Helper to format nodes
+          Map createNode(String id, String label, String type) {
+              Map n = new HashMap();
+              n.put("id", id);
+              n.put("label", label);
+              n.put("type", type);
+              return n;
+          }
+
+          // Helper to format edges
+          Map createEdge(String source, String target, String type) {
+              Map e = new HashMap();
+              e.put("source", source);
+              e.put("target", target);
+              e.put("type", type);
+              return e;
+          }
+          
+          // Helper for details list
+          Map createDetail(String type, String app, String name, String value) {
+              Map d = new HashMap();
+              d.put("Type", type);
+              d.put("Application", app);
+              d.put("Name", name);
+              d.put("Value", value);
+              return d;
+          }
+
+          List nodes = new ArrayList();
+          List edges = new ArrayList();
+          List details = new ArrayList(); // For CSV
+          
+          if (identityName != null) {
+              Identity id = context.getObjectByName(Identity.class, identityName);
+              if (id != null) {
+                  // --- 1. Root Node (Identity) ---
+                  nodes.add(createNode("root", id.getDisplayName(), "identity"));
+                  
+                  // Track what entitlements are "explained" by roles
+                  Set explainedEntitlements = new HashSet(); 
+                  
+                  // --- 2. Roles (Assigned) ---
+                  List assigned = id.getAssignedRoles();
+                  if (assigned != null) {
+                      for (Bundle b : assigned) {
+                          String roleNodeId = "role_" + b.getId();
+                          nodes.add(createNode(roleNodeId, b.getName(), "role"));
+                          edges.add(createEdge("root", roleNodeId, "assigned"));
+                          
+                          details.add(createDetail("Role", "IIQ", b.getName(), "Assigned"));
+                          
+                          // Inspect Role Profiles to predict entitlements
+                          List profiles = b.getProfiles();
+                          if (profiles != null) {
+                             for (Profile p : profiles) {
+                                 // Simple Application-Constraint logic
+                                 String app = p.getApplication().getName();
+                                 List constraints = p.getConstraints();
+                                 if (constraints != null) {
+                                     for (Filter f : constraints) {
+                                          // Very rough filter parsing for equality checks (e.g. group == "X")
+                                          // In real IIQ this is complex Filter logic.
+                                          // We will just capture the 'Value' if possible.
+                                          // For graph demo purpose: We stick to Role Nodes.
+                                     }
+                                 }
+                             }
+                          }
+                      }
+                  }
+
+                  // --- 3. Actual Entitlements (From Links) ---
+                  List links = id.getLinks();
+                  if (links != null) {
+                      for (Link l : links) {
+                          String appName = l.getApplicationName();
+                          String linkNodeId = "acct_" + l.getId();
+                          
+                          // Account Node
+                          nodes.add(createNode(linkNodeId, appName, "account"));
+                          edges.add(createEdge("root", linkNodeId, "has_account"));
+                          
+                          details.add(createDetail("Account", appName, "Native Identity", l.getNativeIdentity()));
+                          
+                          // Granular Entitlements
+                          List linkEnts = l.getEntitlements(null, null);
+                          if (linkEnts != null && !linkEnts.isEmpty()) {
+                              
+                              // First, always add ALL to details list (no clustering for CSV)
+                              for (sailpoint.object.Entitlement ent : linkEnts) {
+                                  String val = (String) ent.getAttributeValue();
+                                  String name = ent.getAttributeName();
+                                  details.add(createDetail("Entitlement", appName, name, val));
+                              }
+                          
+                              int limit = 5;
+                              if (linkEnts.size() > limit) {
+                                  // --- CLUSTER MODE ---
+                                  // Too many entitlements? Group them!
+                                  String clusterId = "cluster_" + l.getId();
+                                  String label = linkEnts.size() + " Entitlements";
+                                  
+                                  // Optional: Add a brief preview in the type or separate field if needed, 
+                                  // but for now we just show the count.
+                                  nodes.add(createNode(clusterId, label, "entitlement_cluster"));
+                                  edges.add(createEdge(linkNodeId, clusterId, "contains"));
+                              } else {
+                                  // --- DETAILED MODE ---
+                                  // Few entitlements? Show them all!
+                                  for (sailpoint.object.Entitlement ent : linkEnts) {
+                                      String val = (String) ent.getAttributeValue();
+                                      // String name = ent.getAttributeName(); // Already used for details list
+                                      String entId = "ent_" + l.getId() + "_" + val.hashCode();
+                                      
+                                      nodes.add(createNode(entId, val, "entitlement"));
+                                      edges.add(createEdge(linkNodeId, entId, "contains"));
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+
+          // Manual JSON Construction for Graph
+          StringBuilder json = new StringBuilder();
+          json.append("{");
+          
+          // Nodes
+          json.append("\"nodes\": [");
+          for (int i = 0; i < nodes.size(); i++) {
+              Map n = (Map) nodes.get(i);
+              json.append("{");
+              json.append("\"id\": \"" + n.get("id") + "\",");
+              json.append("\"label\": \"" + n.get("label") + "\",");
+              json.append("\"type\": \"" + n.get("type") + "\"");
+              json.append("}");
+              if (i < nodes.size() - 1) json.append(",");
+          }
+          json.append("],");
+          
+          // Edges
+          json.append("\"edges\": [");
+          for (int i = 0; i < edges.size(); i++) {
+               Map e = (Map) edges.get(i);
+               json.append("{");
+               json.append("\"source\": \"" + e.get("source") + "\",");
+               json.append("\"target\": \"" + e.get("target") + "\",");
+               json.append("\"type\": \"" + e.get("type") + "\"");
+               json.append("}");
+               if (i < edges.size() - 1) json.append(",");
+          }
+          json.append("]");
+          json.append("}");
+          
+          // Manual JSON Construction for Details (CSV)
+          StringBuilder csvJson = new StringBuilder();
+          csvJson.append("[");
+          for (int i = 0; i < details.size(); i++) {
+              Map d = (Map) details.get(i);
+              csvJson.append("{");
+              csvJson.append("\"Type\": \"" + d.get("Type") + "\",");
+              csvJson.append("\"Application\": \"" + d.get("Application") + "\",");
+              csvJson.append("\"Name\": \"" + d.get("Name") + "\",");
+              
+              // Handle potential quotes in Value
+              String safeVal = "";
+              if (d.get("Value") != null) safeVal = d.get("Value").toString().replace("\"", "'");
+              csvJson.append("\"Value\": \"" + safeVal + "\"");
+              
+              csvJson.append("}");
+              if (i < details.size() - 1) csvJson.append(",");
+          }
+          csvJson.append("]");
+          
+          // Set secondary output variable
+          workflow.put("accessDetails", csvJson.toString());
+          
+          return json.toString();
+          ]]>
+        </Source>
+      </Script>
+      <Transition to="Stop"/>
+    </Step>
+
+    <Step icon="Stop" name="Stop" posX="300" posY="10"/>
+  </Workflow>
+</sailpoint>

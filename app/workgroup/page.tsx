@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Users, UserPlus, Save, AlertCircle, CheckCircle, Loader2, FileSpreadsheet } from "lucide-react";
 
 export default function CreateWorkgroupPage() {
-    const { isAuthenticated, user, url, username, password, isLoading } = useAuth();
+    const { isAuthenticated, url, username, password, isLoading } = useAuth();
     const router = useRouter();
 
     const [form, setForm] = useState({

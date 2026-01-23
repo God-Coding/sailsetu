@@ -1,0 +1,226 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow name="GetCertificationReport" type="LCMProvisioning">
+  <Variable name="identityName" input="true" />
+  <Variable name="reportData" output="true" />
+  
+  <Step name="FetchCertData" icon="Analysis">
+    <Script>
+      <Source><![CDATA[
+        import sailpoint.object.*;
+        import sailpoint.tools.Util;
+        import java.util.*;
+
+        // Helper to escape JSON
+        String escape(String s) {
+            if (s == null) return "";
+            return s.replace("\"", "\\\"").replace("\n", " ");
+        }
+
+        String targetIdentity = identityName;
+        List results = new ArrayList();
+
+        // Find CertificationEntity matching the identity
+        QueryOptions qo = new QueryOptions();
+        qo.addFilter(Filter.eq("targetName", targetIdentity));
+      <Source><![CDATA[
+        import sailpoint.object.*;
+        import sailpoint.tools.Util;
+        import java.util.*;
+
+        // Helper to escape JSON
+        String escape(String s) {
+            if (s == null) return "";
+            return s.replace("\"", "\\\"").replace("\n", " ");
+        }
+
+        String targetIdentity = identityName;
+        List results = new ArrayList();
+
+        // 1. Get Current Access (Real-time)
+        Identity id = context.getObjectByName(Identity.class, targetIdentity);
+        Set currentAccess = new HashSet();
+        List fullReport = new ArrayList();
+
+        if (id != null) {
+            // Get Roles
+            List assignedRoles = id.getAssignedRoles();
+            if (assignedRoles != null) {
+                for (Bundle r : assignedRoles) {
+                    Map item = new HashMap();
+                    item.put("name", r.getName());
+                    item.put("type", "Role");
+                    item.put("source", "current");
+                    fullReport.add(item);
+                    currentAccess.add("Role:" + r.getName());
+                }
+            }
+            // Get Entitlements
+            // (Simplified: just iterating links and building string representation)
+            List links = id.getLinks();
+             if (links != null) {
+                for (Link l : links) {
+                    if (l.isDisabled()) continue;
+                    Attributes attrs = l.getAttributes();
+                    if (attrs != null) {
+                        Map map = attrs.getMap();
+                        for (String key : map.keySet()) {
+                            // Filter common non-entitlement keys if needed, or just grab all
+                            // For simplicity, we assume everything in Link is an entitlement context
+                            // In reality, you'd check Schema.
+                             Object val = map.get(key);
+                             if (val instanceof String) {
+                                 String eName = (String) val;
+                                 // Check if it's "memberOf" or similar specific keys usually
+                                 if ("groups".equalsIgnoreCase(key) || "memberOf".equalsIgnoreCase(key) || "assignedRoles".equalsIgnoreCase(key)) {
+                                      Map item = new HashMap();
+                                      item.put("name", eName);
+                                      item.put("type", "Entitlement");
+                                      item.put("source", "current");
+                                      fullReport.add(item);
+                                      currentAccess.add("Entitlement:" + eName);
+                                 }
+                             } else if (val instanceof List) {
+                                 for(Object v : (List)val) {
+                                      Map item = new HashMap();
+                                      item.put("name", (String)v);
+                                      item.put("type", "Entitlement");
+                                      item.put("source", "current");
+                                      fullReport.add(item);
+                                      currentAccess.add("Entitlement:" + (String)v);
+                                 }
+                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Overlay Certification Data
+        QueryOptions qo = new QueryOptions();
+        qo.addFilter(Filter.eq("targetName", targetIdentity));
+        qo.addOrdering("modified", false); 
+        qo.setResultLimit(1);
+        
+        Iterator entities = context.search(CertificationEntity.class, qo);
+        Map mergedData = new HashMap();
+        String certInfo = "";
+
+        if (entities != null && entities.hasNext()) {
+             CertificationEntity entity = (CertificationEntity) entities.next();
+             Certification cert = entity.getCertification();
+             
+             certInfo = "\"certName\": \"" + escape(cert.getName()) + "\", \"phase\": \"" + cert.getPhase().toString() + "\", \"signedDate\": \"" + (cert.getSigned() != null ? cert.getSigned().toString() : "Pending") + "\"";
+             
+             List items = entity.getItems();
+             if (items != null) {
+                for (Object itemObj : items) {
+                    CertificationItem item = (CertificationItem) itemObj;
+                    CertificationAction action = item.getAction();
+                    
+                    String itemName = null;
+                    List exceptions = item.getExceptionEntitlements();
+                    if (exceptions != null && !exceptions.isEmpty()) {
+                         Object firstEx = exceptions.get(0);
+                         if (firstEx instanceof sailpoint.object.EntitlementSnapshot) {
+                             itemName = ((sailpoint.object.EntitlementSnapshot) firstEx).getNativeIdentity();
+                         } else {
+                             itemName = firstEx.toString();
+                         }
+                    }
+                    if (itemName == null) itemName = item.getBundle(); 
+                    if (itemName == null) itemName = item.getTargetDisplayName();
+                    if (itemName == null) itemName = (String) item.getAttributeValue();
+                    
+                    String type = (item.getBundle() != null) ? "Role" : "Entitlement";
+                    String key = type + ":" + itemName;
+                    
+                    String status = "Open";
+                    String actor = "Pending";
+                    String afterState = "Unchanged";
+
+                    if (action != null) {
+                         status = action.getStatus().toString();
+                         actor = action.getActorName();
+                         if ("Remediated".equals(status) || "Revoked".equals(status)) {
+                             afterState = "Revoked (Lost)";
+                         } else if ("Approved".equals(status)) {
+                             afterState = "Approved (Kept)";
+                         } else {
+                             afterState = status;
+                         }
+                    } else {
+                        // No action taken?
+                        afterState = "No Decision";
+                    }
+
+                    // Update or Add to Merged Data
+                    Map row = new HashMap();
+                    row.put("name", itemName);
+                    row.put("type", type);
+                    row.put("decision", status);
+                    row.put("actor", actor);
+                    row.put("before", "Present");
+                    row.put("after", afterState);
+                    
+                    mergedData.put(key, row);
+                }
+             }
+        }
+        Util.flushIterator(entities);
+        
+        // 3. Combine: Current Access that wasn't in Cert + Cert Items
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append(certInfo.isEmpty() ? "\"certName\": \"No Recent Cert Found\"" : certInfo);
+        sb.append(", \"items\": [");
+        
+        List finalItems = new ArrayList();
+        
+        // Add items from Certification (Revoked OR Approved)
+        for (String key : mergedData.keySet()) {
+             Map m = (Map) mergedData.get(key);
+             finalItems.add(m);
+        }
+
+        // Add items from Current Access that were NOT in Cert (Not Reviewed)
+        // Note: If item WAS in cert and Approved, it is in currentAccess AND mergedData.
+        // We prioritizing mergedData logic for those.
+        for (Map r : fullReport) {
+             String key = r.get("type") + ":" + r.get("name");
+             if (!mergedData.containsKey(key)) {
+                 Map m = new HashMap();
+                 m.put("name", r.get("name"));
+                 m.put("type", r.get("type"));
+                 m.put("decision", "N/A");
+                 m.put("actor", "N/A");
+                 m.put("before", "Present");
+                 m.put("after", "Present (Not Reviewed)");
+                 finalItems.add(m);
+             }
+        }
+        
+        // Serialize
+        boolean first = true;
+        for (Object itemObj : finalItems) {
+            Map m = (Map) itemObj;
+            if (!first) sb.append(",");
+            first = false;
+            sb.append("{");
+            sb.append("\"name\": \"" + escape((String)m.get("name")) + "\",");
+            sb.append("\"type\": \"" + escape((String)m.get("type")) + "\",");
+            sb.append("\"decision\": \"" + escape((String)m.get("decision")) + "\",");
+            sb.append("\"actor\": \"" + escape((String)m.get("actor")) + "\",");
+            sb.append("\"before\": \"" + escape((String)m.get("before")) + "\",");
+            sb.append("\"after\": \"" + escape((String)m.get("after")) + "\"");
+            sb.append("}");
+        }
+        
+        sb.append("]}");
+        
+        String finalJson = "[" + sb.toString() + "]";
+        workflow.put("reportData", finalJson);
+      ]]></Source>
+    </Script>
+  </Step>
+</Workflow>

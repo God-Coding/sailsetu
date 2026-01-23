@@ -4,7 +4,43 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/ui/auth-context";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, User, Mail, Briefcase, UserCheck, XCircle, GitCompare, GitBranch, Plus, FileText, Hammer, Terminal } from "lucide-react";
+import { Loader2, User, Mail, Briefcase, UserCheck, XCircle, GitCompare, GitBranch, Plus, FileText, Hammer, Terminal, Share2, Wrench, Flame, ClipboardCheck } from "lucide-react";
+// ... imports ...
+
+// ... inside Tools Section grid ...
+
+{/* Access Map Card */ }
+<Link href="/visualizer" className="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 p-4 hover:bg-slate-900 transition-all hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/10">
+    <div className="flex items-center gap-3 mb-2">
+        <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20 group-hover:text-cyan-300 transition-colors">
+            <Share2 className="h-5 w-5" />
+        </div>
+        <h3 className="font-semibold text-slate-200">Access Lineage Map</h3>
+    </div>
+    <p className="text-xs text-slate-400">Visualize identity entitlements and roles in an interactive graph.</p>
+</Link>
+
+{/* Request Repair Card */ }
+<Link href="/request-maintenance" className="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 p-4 hover:bg-slate-900 transition-all hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/10">
+    <div className="flex items-center gap-3 mb-2">
+        <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:bg-amber-500/20 group-hover:text-amber-300 transition-colors">
+            <Wrench className="h-5 w-5" />
+        </div>
+        <h3 className="font-semibold text-slate-200">Request Repair</h3>
+    </div>
+    <p className="text-xs text-slate-400">Diagnose and fix stuck IdentityIQ requests and workflows.</p>
+</Link>
+
+{/* Firefighter Card */ }
+<Link href="/firefighter" className="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 p-4 hover:bg-slate-900 transition-all hover:border-red-500/50 hover:shadow-lg hover:shadow-red-500/10">
+    <div className="flex items-center gap-3 mb-2">
+        <div className="p-2 rounded-lg bg-red-500/10 text-red-400 group-hover:bg-red-500/20 group-hover:text-red-300 transition-colors">
+            <Flame className="h-5 w-5" />
+        </div>
+        <h3 className="font-semibold text-slate-200">Firefighter Access</h3>
+    </div>
+    <p className="text-xs text-slate-400">Emergency "Break-Glass" access provisioning with auto-expiry.</p>
+</Link>
 
 export default function Dashboard() {
     const { url, isAuthenticated } = useAuth();
@@ -93,13 +129,50 @@ export default function Dashboard() {
                                 <p className="text-xs text-slate-400">Interactive sandbox to execute BeanShell rules and debug logic.</p>
                             </Link>
 
-                            {/* Placeholder for future tools */}
-                            <div className="rounded-xl border border-dashed border-slate-800 bg-slate-900/20 p-4 flex flex-col items-center justify-center text-center">
-                                <div className="p-2 rounded-lg bg-slate-800/50 text-slate-600 mb-2">
-                                    <Plus className="h-5 w-5" />
+
+                            {/* Access Map Card */}
+                            <Link href="/visualizer" className="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 p-4 hover:bg-slate-900 transition-all hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/10">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20 group-hover:text-cyan-300 transition-colors">
+                                        <Share2 className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-200">Access Lineage Map</h3>
                                 </div>
-                                <h3 className="text-sm font-semibold text-slate-500">More Coming Soon</h3>
-                            </div>
+                                <p className="text-xs text-slate-400">Visualize identity entitlements and roles in an interactive graph.</p>
+                            </Link>
+
+                            {/* Request Repair Card */}
+                            <Link href="/request-maintenance" className="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 p-4 hover:bg-slate-900 transition-all hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/10">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 group-hover:bg-amber-500/20 group-hover:text-amber-300 transition-colors">
+                                        <Wrench className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-200">Request Repair</h3>
+                                </div>
+                                <p className="text-xs text-slate-400">Diagnose and fix stuck IdentityIQ requests and workflows.</p>
+                            </Link>
+
+                            {/* Firefighter Card */}
+                            <Link href="/firefighter" className="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 p-4 hover:bg-slate-900 transition-all hover:border-red-500/50 hover:shadow-lg hover:shadow-red-500/10">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 rounded-lg bg-red-500/10 text-red-400 group-hover:bg-red-500/20 group-hover:text-red-300 transition-colors">
+                                        <Flame className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-200">Firefighter Access</h3>
+                                </div>
+                                <p className="text-xs text-slate-400">Emergency "Break-Glass" access provisioning with auto-expiry.</p>
+                            </Link>
+
+                            {/* Certification Report Card */}
+                            <Link href="/certification-report" className="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 p-4 hover:bg-slate-900 transition-all hover:border-violet-500/50 hover:shadow-lg hover:shadow-violet-500/10">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 rounded-lg bg-violet-500/10 text-violet-400 group-hover:bg-violet-500/20 group-hover:text-violet-300 transition-colors">
+                                        <ClipboardCheck className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-200">Cert Impact Report</h3>
+                                </div>
+                                <p className="text-xs text-slate-400">Analyze "Before vs After" outcomes of Access Certifications.</p>
+                            </Link>
                         </div>
                     </div>
                 </div>

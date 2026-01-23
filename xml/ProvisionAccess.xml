@@ -172,11 +172,11 @@
        <Arg name="approvalScheme" value="ref:approvalScheme"/>
        <Arg name="source" value="Batch"/>
        <Arg name="optimisticProvisioning" value="true"/>
-       <Return name="identityRequestId" to="identityRequestId"/>
+       <Return name="ident
        <Return name="project" to="project"/>
        <Transition to="DebugOutput"/>
     </Step>
-
+741                                                
     <Step name="DebugOutput" posX="400" posY="10">
       <Script>
         <Source>
@@ -199,6 +199,7 @@
                      trace += "Project is " + (project == null ? "null" : "present but no ID") + ". ";
                      
                      // Fallback
+   
                      QueryOptions qo = new QueryOptions();
                      qo.addFilter(Filter.eq("targetDisplayName", identityName));
                      qo.setOrderBy("created");

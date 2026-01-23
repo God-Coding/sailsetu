@@ -39,6 +39,16 @@ export async function POST(request: Request) {
         try {
             data = JSON.parse(rawText);
         } catch (e) {
+            // Check if it's HTML
+            if (rawText.trim().startsWith('<') || rawText.includes("<!DOCTYPE")) {
+                console.error("Received HTML response:", rawText.slice(0, 200));
+                return NextResponse.json({
+                    success: false,
+                    status: 404, // Usually URL is wrong or redirected
+                    error: "Received HTML login page instead of API response. Check your URL (e.g. /identityiq) or SCIM configuration.",
+                    details: { rawHtmlPreview: rawText.slice(0, 100) }
+                }, { status: 400 });
+            }
             data = { rawText: rawText };
         }
 
