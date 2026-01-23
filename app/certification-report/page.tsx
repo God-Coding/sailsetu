@@ -187,69 +187,7 @@ export default function CertificationReportPage() {
 
                                 {/* Certification Details */}
                                 {r.found && r.data && (
-                                    <div className="p-0">
-                                        {/* Meta Stats */}
-                                        <div className="flex divide-x divide-white/5 bg-slate-900/50 text-xs text-slate-400 border-b border-white/5">
-                                            <div className="flex-1 p-3 flex flex-col items-center">
-                                                <span className="uppercase tracking-wider font-semibold opacity-50 mb-1">Status</span>
-                                                <span className="text-white">{r.data.phase}</span>
-                                            </div>
-                                            <div className="flex-1 p-3 flex flex-col items-center">
-                                                <span className="uppercase tracking-wider font-semibold opacity-50 mb-1">Signed Date</span>
-                                                <span className="text-white">{r.data.signedDate}</span>
-                                            </div>
-                                            <div className="flex-1 p-3 flex flex-col items-center">
-                                                <span className="uppercase tracking-wider font-semibold opacity-50 mb-1">Items Reviewed</span>
-                                                <span className="text-white">{r.data.items?.length || 0}</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Table */}
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left text-sm text-slate-400">
-                                                <thead className="bg-slate-950 text-xs uppercase font-medium text-slate-500">
-                                                    <tr>
-                                                        <th className="px-6 py-3">Access Item</th>
-                                                        <th className="px-6 py-3">Before State</th>
-                                                        <th className="px-6 py-3">After State</th>
-                                                        <th className="px-6 py-3">Reviewer</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-white/5">
-                                                    {r.data.items?.map((item: any, idx: number) => (
-                                                        <tr key={idx} className="hover:bg-white/5 transition-colors">
-                                                            <td className="px-6 py-3 font-medium text-slate-300">
-                                                                {item.name}
-                                                                <span className="block text-[10px] text-slate-500 font-mono mt-0.5">{item.type}</span>
-                                                            </td>
-                                                            <td className="px-6 py-3">
-                                                                <span className="text-emerald-400/80 text-xs flex items-center gap-1">
-                                                                    <CheckCircle className="h-3 w-3" /> Present
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-6 py-3">
-                                                                {item.after.includes("Revoked") ? (
-                                                                    <span className="text-rose-400 font-bold bg-rose-950/20 px-2 py-0.5 rounded text-xs border border-rose-500/20">
-                                                                        {item.after}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-emerald-400 text-xs opacity-60">
-                                                                        {item.after}
-                                                                    </span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-6 py-3 text-xs">
-                                                                <div className="flex items-center gap-2">
-                                                                    <Shield className="h-3 w-3" />
-                                                                    {item.actor}
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
+                                    <ReportCard report={r} />
                                 )}
                             </div>
                         ))}
@@ -257,5 +195,124 @@ export default function CertificationReportPage() {
                 </div>
             </div>
         </main>
+    );
+}
+
+function ReportCard({ report }: { report: any }) {
+    const [activeTab, setActiveTab] = useState("Summary");
+
+    if (!report.found || !report.data) return null;
+
+    const items = report.data.items || [];
+
+    // Derived Lists
+    const beforeList = items.filter((i: any) => i.before === "Present");
+    const afterList = items.filter((i: any) => !i.after.includes("Revoked"));
+    const removedList = items.filter((i: any) => i.after.includes("Revoked"));
+    const approvedList = items.filter((i: any) => i.decision === "Approved");
+
+    return (
+        <div className="p-0">
+            {/* Tabs Header */}
+            <div className="flex items-center gap-1 p-2 border-b border-white/5 bg-slate-900/50 overflow-x-auto">
+                {["Summary", "Before Access", "After Access", "Removed", "Approved"].map((tab) => (
+                    <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab
+                            ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                            : "text-slate-500 hover:bg-white/5 hover:text-slate-300"
+                            }`}
+                    >
+                        {tab}
+                        {tab === "Before Access" && <span className="ml-2 opacity-50">{beforeList.length}</span>}
+                        {tab === "After Access" && <span className="ml-2 opacity-50">{afterList.length}</span>}
+                        {tab === "Removed" && <span className="ml-2 opacity-50">{removedList.length}</span>}
+                        {tab === "Approved" && <span className="ml-2 opacity-50">{approvedList.length}</span>}
+                    </button>
+                ))}
+            </div>
+
+            {/* Tab Content */}
+            <div className="p-0">
+                {activeTab === "Summary" && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6">
+                        <div className="bg-slate-950/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center">
+                            <span className="text-3xl font-bold text-slate-200 mb-1">{beforeList.length}</span>
+                            <span className="text-xs text-slate-500 uppercase font-bold tracking-widest">Pre-Cert</span>
+                        </div>
+                        <div className="bg-emerald-950/10 p-4 rounded-xl border border-emerald-500/20 flex flex-col items-center justify-center text-center">
+                            <span className="text-3xl font-bold text-emerald-400 mb-1">{afterList.length}</span>
+                            <span className="text-xs text-emerald-500/60 uppercase font-bold tracking-widest">Post-Cert</span>
+                        </div>
+                        <div className="bg-rose-950/10 p-4 rounded-xl border border-rose-500/20 flex flex-col items-center justify-center text-center">
+                            <span className="text-3xl font-bold text-rose-400 mb-1">{removedList.length}</span>
+                            <span className="text-xs text-rose-500/60 uppercase font-bold tracking-widest">Revoked</span>
+                        </div>
+                        <div className="bg-indigo-950/10 p-4 rounded-xl border border-indigo-500/20 flex flex-col items-center justify-center text-center">
+                            <span className="text-3xl font-bold text-indigo-400 mb-1">{approvedList.length}</span>
+                            <span className="text-xs text-indigo-500/60 uppercase font-bold tracking-widest">Approved</span>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab !== "Summary" && (
+                    <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
+                        <table className="w-full text-left text-sm text-slate-400">
+                            <thead className="bg-slate-950 text-xs uppercase font-medium text-slate-500 sticky top-0">
+                                <tr>
+                                    <th className="px-6 py-3">Access Item</th>
+                                    <th className="px-6 py-3">Type</th>
+                                    <th className="px-6 py-3">Review Outcome</th>
+                                    <th className="px-6 py-3">Reviewer</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {(activeTab === "Before Access" ? beforeList :
+                                    activeTab === "After Access" ? afterList :
+                                        activeTab === "Removed" ? removedList : approvedList
+                                ).map((item: any, idx: number) => (
+                                    <tr key={idx} className="hover:bg-white/5 transition-colors group">
+                                        <td className="px-6 py-3 font-medium text-slate-300 group-hover:text-white transition-colors">
+                                            {item.name}
+                                        </td>
+                                        <td className="px-6 py-3">
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase border ${item.type === 'Role' ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                                                }`}>
+                                                {item.type}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-3">
+                                            {item.after.includes("Revoked") ? (
+                                                <span className="text-rose-400 inline-flex items-center gap-1.5 bg-rose-950/20 px-2 py-0.5 rounded text-xs border border-rose-500/20">
+                                                    <XCircle className="h-3 w-3" /> Revoked
+                                                </span>
+                                            ) : item.decision === "Approved" ? (
+                                                <span className="text-emerald-400 inline-flex items-center gap-1.5 bg-emerald-950/20 px-2 py-0.5 rounded text-xs border border-emerald-500/20">
+                                                    <CheckCircle className="h-3 w-3" /> Approved
+                                                </span>
+                                            ) : (
+                                                <span className="text-slate-500 text-xs italic">Retained (No Action)</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-3 text-xs font-mono text-slate-500">
+                                            {item.actor !== "Pending" && item.actor !== "N/A" ? item.actor : "-"}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {(activeTab === "Before Access" ? beforeList :
+                            activeTab === "After Access" ? afterList :
+                                activeTab === "Removed" ? removedList : approvedList
+                        ).length === 0 && (
+                                <div className="p-8 text-center text-slate-500 text-sm italic">
+                                    No items found in this category.
+                                </div>
+                            )}
+                    </div>
+                )}
+            </div>
+        </div>
     );
 }

@@ -7,23 +7,7 @@
   <Step name="FetchCertData" icon="Analysis">
     <Script>
       <Source><![CDATA[
-        import sailpoint.object.*;
-        import sailpoint.tools.Util;
-        import java.util.*;
 
-        // Helper to escape JSON
-        String escape(String s) {
-            if (s == null) return "";
-            return s.replace("\"", "\\\"").replace("\n", " ");
-        }
-
-        String targetIdentity = identityName;
-        List results = new ArrayList();
-
-        // Find CertificationEntity matching the identity
-        QueryOptions qo = new QueryOptions();
-        qo.addFilter(Filter.eq("targetName", targetIdentity));
-      <Source><![CDATA[
         import sailpoint.object.*;
         import sailpoint.tools.Util;
         import java.util.*;
@@ -41,8 +25,12 @@
         Identity id = context.getObjectByName(Identity.class, targetIdentity);
         Set currentAccess = new HashSet();
         List fullReport = new ArrayList();
+        String canonicalName = targetIdentity;
+        String displayName = targetIdentity;
 
         if (id != null) {
+            canonicalName = id.getName();
+            displayName = id.getDisplayName();
             // Get Roles
             List assignedRoles = id.getAssignedRoles();
             if (assignedRoles != null) {
@@ -55,8 +43,7 @@
                     currentAccess.add("Role:" + r.getName());
                 }
             }
-            // Get Entitlements
-            // (Simplified: just iterating links and building string representation)
+            // Get Entitlements (Links)
             List links = id.getLinks();
              if (links != null) {
                 for (Link l : links) {
@@ -65,13 +52,9 @@
                     if (attrs != null) {
                         Map map = attrs.getMap();
                         for (String key : map.keySet()) {
-                            // Filter common non-entitlement keys if needed, or just grab all
-                            // For simplicity, we assume everything in Link is an entitlement context
-                            // In reality, you'd check Schema.
                              Object val = map.get(key);
                              if (val instanceof String) {
                                  String eName = (String) val;
-                                 // Check if it's "memberOf" or similar specific keys usually
                                  if ("groups".equalsIgnoreCase(key) || "memberOf".equalsIgnoreCase(key) || "assignedRoles".equalsIgnoreCase(key)) {
                                       Map item = new HashMap();
                                       item.put("name", eName);
@@ -98,11 +81,22 @@
 
         // 2. Overlay Certification Data
         QueryOptions qo = new QueryOptions();
-        qo.addFilter(Filter.eq("targetName", targetIdentity));
+        // Try precise match on Name first
+        qo.addFilter(Filter.eq("targetName", canonicalName));
         qo.addOrdering("modified", false); 
         qo.setResultLimit(1);
         
         Iterator entities = context.search(CertificationEntity.class, qo);
+        
+        // Fallback: Try Display Name if no result
+        if (entities == null || !entities.hasNext()) {
+             Util.flushIterator(entities);
+             QueryOptions qo2 = new QueryOptions();
+             qo2.addFilter(Filter.eq("targetDisplayName", displayName));
+             qo2.addOrdering("modified", false); 
+             qo2.setResultLimit(1);
+             entities = context.search(CertificationEntity.class, qo2);
+        }
         Map mergedData = new HashMap();
         String certInfo = "";
 
