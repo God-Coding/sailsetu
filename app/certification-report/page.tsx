@@ -5,7 +5,7 @@ import { useAuth } from "@/components/ui/auth-context";
 import { useRouter } from "next/navigation";
 import {
     FileText, Search, Loader2, CheckCircle,
-    XCircle, AlertCircle, Calendar, User, Shield
+    XCircle, AlertCircle, Calendar, User, Shield, Download
 } from "lucide-react";
 
 export default function CertificationReportPage() {
@@ -211,26 +211,66 @@ function ReportCard({ report }: { report: any }) {
     const removedList = items.filter((i: any) => i.after.includes("Revoked"));
     const approvedList = items.filter((i: any) => i.decision === "Approved");
 
+    const downloadCSV = () => {
+        if (!report.found || !report.data || !report.data.items) return;
+
+        const headers = ["Identity", "Access Item", "Type", "Decision", "Actor", "Before State", "After State"];
+        const rows = report.data.items.map((item: any) => [
+            report.identity,
+            item.name,
+            item.type,
+            item.decision,
+            item.actor,
+            item.before,
+            item.after
+        ]);
+
+        const csvContent = [
+            headers.join(","),
+            ...rows.map((row: any[]) => row.map(field => `"${String(field || "").replace(/"/g, '""')}"`).join(","))
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Certification_Report_${report.identity}.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="p-0">
             {/* Tabs Header */}
-            <div className="flex items-center gap-1 p-2 border-b border-white/5 bg-slate-900/50 overflow-x-auto">
-                {["Summary", "Before Access", "After Access", "Removed", "Approved"].map((tab) => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab
-                            ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                            : "text-slate-500 hover:bg-white/5 hover:text-slate-300"
-                            }`}
-                    >
-                        {tab}
-                        {tab === "Before Access" && <span className="ml-2 opacity-50">{beforeList.length}</span>}
-                        {tab === "After Access" && <span className="ml-2 opacity-50">{afterList.length}</span>}
-                        {tab === "Removed" && <span className="ml-2 opacity-50">{removedList.length}</span>}
-                        {tab === "Approved" && <span className="ml-2 opacity-50">{approvedList.length}</span>}
-                    </button>
-                ))}
+            <div className="flex items-center justify-between p-2 border-b border-white/5 bg-slate-900/50">
+                <div className="flex items-center gap-1 overflow-x-auto">
+                    {["Summary", "Before Access", "After Access", "Removed", "Approved"].map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeTab === tab
+                                ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                                : "text-slate-500 hover:bg-white/5 hover:text-slate-300"
+                                }`}
+                        >
+                            {tab}
+                            {tab === "Before Access" && <span className="ml-2 opacity-50">{beforeList.length}</span>}
+                            {tab === "After Access" && <span className="ml-2 opacity-50">{afterList.length}</span>}
+                            {tab === "Removed" && <span className="ml-2 opacity-50">{removedList.length}</span>}
+                            {tab === "Approved" && <span className="ml-2 opacity-50">{approvedList.length}</span>}
+                        </button>
+                    ))}
+                </div>
+                <button
+                    onClick={downloadCSV}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors ml-2"
+                    title="Download CSV"
+                >
+                    <Download className="h-4 w-4" />
+                    <span className="hidden sm:inline">CSV</span>
+                </button>
             </div>
 
             {/* Tab Content */}
