@@ -1,0 +1,363 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow name="LaunchOOTBReport" type="LCMProvisioning">
+  <Variable name="reportName" input="true" />
+  <Variable name="reportArgs" input="true" />
+  <Variable name="launchResult" output="true" />
+  
+  <Step name="ExecuteReport" icon="Task">
+    <Script>
+      <Source><![CDATA[
+        import sailpoint.object.*;
+        import sailpoint.object.Content;
+        import sailpoint.tools.Util;
+        import sailpoint.api.TaskManager;
+        import org.json.JSONObject;
+        import java.util.*;
+        import java.util.Base64;
+
+        String taskName = reportName;
+        Map args = null;
+        
+        // Parse args if sent as JSON string, else lookup existing map
+        if (reportArgs instanceof String) {
+             try {
+                 JSONObject json = new JSONObject((String) reportArgs);
+                 args = new HashMap();
+                 Iterator keys = json.keys();
+                 while (keys.hasNext()) {
+                     String key = (String) keys.next();
+                     Object val = json.get(key);
+                     
+                     // Skip null values (JSONObject.NULL)
+                     if (val == null || val == org.json.JSONObject.NULL) {
+                         continue;
+                     }
+                     
+                     if (val instanceof org.json.JSONArray) {
+                         List list = new ArrayList();
+                         org.json.JSONArray arr = (org.json.JSONArray) val;
+                         for (int i=0; i<arr.length(); i++) {
+                             Object item = arr.get(i);
+                             if (item != null && item != org.json.JSONObject.NULL) {
+                                 list.add(item);
+                             }
+                         }
+                         args.put(key, list);
+                     } else {
+                         args.put(key, val);
+                     }
+                 }
+             } catch (Exception e) {
+                 // ignore or log
+             }
+        } else if (reportArgs instanceof Map) {
+             args = (Map) reportArgs;
+        }
+
+        if (args == null) args = new HashMap();
+        
+        // 1. Find TaskDefinition (Moved up for introspection)
+        TaskDefinition taskDef = context.getObjectByName(TaskDefinition.class, taskName);
+        if (taskDef == null) {
+            throw new Exception("TaskDefinition not found: " + taskName);
+        }
+
+        // VALIDATION: Remove arguments that don't exist in report signature
+        if (taskDef.getSignature() != null && args != null) {
+            Set validArgNames = new HashSet();
+            for (Argument argDef : taskDef.getSignature().getArguments()) {
+                validArgNames.add(argDef.getName());
+            }
+            
+            // Remove invalid arguments
+            Iterator argIterator = args.keySet().iterator();
+            List removedArgs = new ArrayList();
+            while (argIterator.hasNext()) {
+                String argName = (String) argIterator.next();
+                if (!validArgNames.contains(argName)) {
+                    removedArgs.add(argName);
+                    argIterator.remove();
+                }
+            }
+            
+            // Log what was removed for debugging
+            if (!removedArgs.isEmpty()) {
+                System.out.println("WARN: Removed invalid arguments: " + removedArgs + " for report: " + taskName);
+            }
+        }
+
+        // AUTO-FIX: Remap common mismatches
+        // "Identity Entitlements Detail Report" expects "identity" but frontend sends "identities"
+        if (args.containsKey("identities") && !args.containsKey("identity")) {
+            args.put("identity", args.get("identities"));
+        }
+        
+        // UNIVERSAL ENTITY RESOLVER
+        // Iterate over args to find potential Object lookups using Signature types
+        if (taskDef.getSignature() != null) {
+            for (Argument argDef : taskDef.getSignature().getArguments()) {
+                String argName = argDef.getName();
+                String argType = argDef.getType(); // e.g. "Identity", "Application", "Bundle"
+                
+                if (args.containsKey(argName) && argType != null && !"string".equalsIgnoreCase(argType) && !"boolean".equalsIgnoreCase(argType) && !"int".equalsIgnoreCase(argType) && !"date".equalsIgnoreCase(argType)) {
+                    // This argument expects a SailPoint Object (Identity, Application, etc)
+                    Object inputVal = args.get(argName);
+                                        
+                    List resolvedList = new ArrayList();
+                    List inputs = new ArrayList();
+                    if (inputVal instanceof List) inputs.addAll((List)inputVal);
+                    else inputs.add(inputVal);
+                    
+                    boolean modified = false;
+                    for (Object item : inputs) {
+                        if (item instanceof String) {
+                            String name = (String) item;
+                            // Check if it's already an ID (simple check: length 32 hex)
+                            if (name.length() == 32 && name.matches("[0-9a-f]+")) {
+                                resolvedList.add(name);
+                            } else {
+                                // Try lookup
+                                try {
+                                    // Handle "Bundle" -> "Role" if needed, but usually Class name matches Type
+                                    String className = argType;
+                                    if ("Role".equals(argType)) className = "Bundle"; // Common mapping
+                                    
+                                    Class cls = Class.forName("sailpoint.object." + className);
+                                    SailPointObject obj = context.getObjectByName(cls, name);
+                                    if (obj != null) {
+                                        resolvedList.add(obj.getId());
+                                        modified = true;
+                                    } else {
+                                        resolvedList.add(name); // fallback
+                                    }
+                                } catch (Exception cnfe) {
+                                    resolvedList.add(name); // unknown type
+                                }
+                            }
+                        } else {
+                            resolvedList.add(item);
+                        }
+                    }
+                    
+                    if (modified) {
+                        if (argDef.isMulti()) args.put(argName, resolvedList);
+                        else if (!resolvedList.isEmpty()) args.put(argName, resolvedList.get(0));
+                    }
+                }
+            }
+        }
+
+        // SPECIAL HANDLING: Entitlements (IdentityItem type)
+        // DISABLED: Let SailPoint's native deserialization handle it
+        // The report framework expects specific JSON format that we shouldn't interfere with
+        /*
+        if (taskDef.getSignature() != null) {
+            for (Argument argDef : taskDef.getSignature().getArguments()) {
+                String argName = argDef.getName();
+                String argType = argDef.getType();
+                
+                if ("sailpoint.object.IdentityItem".equals(argType) && args.containsKey(argName)) {
+                    // Keep the string as-is, don't try to resolve
+                }
+            }
+        }
+        */
+
+        // DEBUG: Introspect Signature & Actual Args
+        List signatureArgs = new ArrayList();
+        if (taskDef.getSignature() != null) {
+            for (Argument arg : taskDef.getSignature().getArguments()) {
+                Map argInfo = new HashMap();
+                argInfo.put("name", arg.getName());
+                argInfo.put("type", arg.getType());
+                argInfo.put("multi", arg.isMulti());
+                signatureArgs.add(argInfo);
+            }
+        }
+        
+        Map debugArgs = new HashMap();
+        if (args != null) {
+            for (Object key : args.keySet()) {
+                Object val = args.get(key);
+                debugArgs.put(key, val != null ? val.getClass().getName() + ": " + val.toString() : "null");
+            }
+        }
+
+        // 2. Prepare TaskManager
+        TaskManager tm = new TaskManager(context);
+        
+        // 3. Launch Task (Synchronous)
+        TaskResult result = tm.runSync(taskDef, args);
+        
+        // 4. Return Result ID and Status
+        result = (TaskResult) context.getObjectById(TaskResult.class, result.getId());
+
+        Map output = new HashMap();
+        output.put("version", "debug-v23");
+        output.put("debug_signature", signatureArgs);
+        output.put("debug_actual_args", debugArgs);
+        output.put("taskResultId", result.getId());
+        output.put("completionStatus", result.getCompletionStatus() != null ? result.getCompletionStatus().toString() : "Unknown");
+        output.put("messages", result.getMessages());
+        
+        // 5. Look for generated Content (FileBucket Assembly)
+        try {
+            String targetJasperId = null;
+
+            // Strategy 1: Check attributes 'reports' or 'report'
+            List reports = null;
+            Object reportAttr = result.getAttribute("reports");
+            if (reportAttr instanceof List) {
+                reports = (List) reportAttr;
+            } else {
+                 Object r = result.getAttribute("report");
+                 if (r != null) {
+                     reports = new ArrayList();
+                     reports.add(r);
+                 }
+            }
+            
+            if (reports != null && !reports.isEmpty()) {
+                 Object ref = reports.get(0);
+                 try {
+                     java.lang.reflect.Method getId = ref.getClass().getMethod("getId");
+                     targetJasperId = (String) getId.invoke(ref);
+                 } catch(Exception e) {
+                     // ignore
+                 }
+            }
+            
+            // Strategy 2: XML Regex
+            if (targetJasperId == null) {
+                 try {
+                     String xml = result.toXml();
+                     java.util.regex.Pattern p = java.util.regex.Pattern.compile("class=\"sailpoint\\.object\\.JasperResult\"\\s+id=\"([a-f0-9]+)\"");
+                     java.util.regex.Matcher m = p.matcher(xml);
+                     if (m.find()) {
+                         targetJasperId = m.group(1);
+                     }
+                 } catch(Exception e) {
+                     output.put("debug_xml_error", e.toString());
+                 }
+            }
+            
+            // Load JasperResult
+            if (targetJasperId != null) {
+                 output.put("debug_jasper_id", targetJasperId);
+                 Class jasperClass = Class.forName("sailpoint.object.JasperResult");
+                 Object jasperResult = context.getObjectById(jasperClass, targetJasperId);
+                 
+                 if (jasperResult != null) {
+                     // Drill down to PersistedFile
+                     try {
+                          List files = (List) jasperResult.getClass().getMethod("getFiles").invoke(jasperResult);
+                          if (files != null && !files.isEmpty()) {
+                              Object targetFile = files.get(0);
+                              for (Object f : files) {
+                                  String fname = (String) f.getClass().getMethod("getName").invoke(f);
+                                  if (fname != null && fname.toLowerCase().endsWith(".csv")) {
+                                      targetFile = f;
+                                      break;
+                                  }
+                              }
+
+                              // Strategy: FileBucket Reassembly
+                              byte[] data = null;
+                              if (targetFile != null) {
+                                  try {
+                                      String fileId = (String) targetFile.getClass().getMethod("getId").invoke(targetFile);
+                                      output.put("debug_persisted_file_id", fileId);
+                                      
+                                      // 1. Try simple getInputStream / getBytes first
+                                      try {
+                                           data = (byte[]) targetFile.getClass().getMethod("getBytes").invoke(targetFile);
+                                      } catch(Exception e){}
+                                      
+                                      // 2. If null, try FileBucket assembly
+                                      if (data == null) {
+                                          Class bucketClass = Class.forName("sailpoint.object.FileBucket");
+                                          QueryOptions qo = new QueryOptions();
+                                          qo.addFilter(Filter.eq("parent.id", fileId));
+                                          qo.setOrderBy("fileIndex");
+                                          
+                                          List buckets = context.getObjects(bucketClass, qo);
+                                          output.put("debug_bucket_count", buckets != null ? buckets.size() : 0);
+                                          
+                                          if (buckets != null && !buckets.isEmpty()) {
+                                              java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                                              for (Object bucket : buckets) {
+                                                   byte[] chunk = null;
+                                                   try { chunk = (byte[]) bucket.getClass().getMethod("getData").invoke(bucket); } catch(Exception e){}
+                                                   if (chunk != null) baos.write(chunk);
+                                              }
+                                              data = baos.toByteArray();
+                                              output.put("debug_bucket_assembly_size", data.length);
+                                          }
+                                      }
+                                  } catch(Exception e) {
+                                      output.put("debug_bucket_error", e.toString());
+                                  }
+                              }
+
+                              if (data != null) {
+                                  String b64 = Base64.getEncoder().encodeToString(data);
+                                  output.put("fileContent", b64);
+                                  
+                                  String fname = "unknown.dat";
+                                  try { fname = (String) targetFile.getClass().getMethod("getName").invoke(targetFile); } catch(Exception e){}
+                                  output.put("fileName", fname);
+                                  
+                                  if (fname.endsWith(".csv")) output.put("contentType", "text/csv");
+                                  else if (fname.endsWith(".pdf")) output.put("contentType", "application/pdf");
+                                  else output.put("contentType", "application/octet-stream");
+                              } else {
+                                  output.put("debug_content", "No data retrieved (buckets=0 or read failed)");
+                              }
+                          }
+                     } catch (Exception e) {
+                          output.put("debug_jasper_drill_error", "Error reading PersistedFile: " + e.toString());
+                     }
+                 }
+            }
+        } catch (Throwable t) {
+             output.put("debug_jasper_error", "Runtime Jasper Error: " + t.toString());
+        }
+
+        JSONObject outJson = new JSONObject(output);
+        String json = outJson.toString();
+        
+        // Write to log file for debugging
+        try {
+            String logPath = System.getProperty("java.io.tmpdir") + "/sailpoint_debug_" + System.currentTimeMillis() + ".log";
+            java.io.FileWriter fw = new java.io.FileWriter(logPath, true);
+            fw.write("--- Debug Output " + new Date() + " ---\n");
+            fw.write("TaskResult ID: " + result.getId() + "\n");
+            fw.write("Version: debug-v23\n");
+            
+            // Create a truncated version just for the log file to avoid disk filling/parsing issues if manually opening
+            Map logOutput = new HashMap(output);
+            if (logOutput.containsKey("fileContent")) {
+                String fullcontent = (String) logOutput.get("fileContent");
+                if (fullcontent.length() > 200) {
+                    logOutput.put("fileContent", fullcontent.substring(0, 100) + "... [TRUNCATED FOR LOG]");
+                }
+            }
+            fw.write("JSON Output: " + new JSONObject(logOutput).toString() + "\n");
+            fw.close();
+            
+            output.put("saved_to_log", logPath);
+            json = new JSONObject(output).toString();
+        } catch (Exception e) {
+            // ignore
+        }
+        
+        if (wfcontext != null) {
+            wfcontext.getWorkflowCase().put("launchResult", json);
+        } else {
+            workflow.put("launchResult", json);
+        }
+      ]]></Source>
+    </Script>
+  </Step>
+</Workflow>

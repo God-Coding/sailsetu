@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/ui/auth-context";
 import { useState } from "react";
-import { Hammer, LayoutDashboard, FileSpreadsheet, GitCompare, LogOut, Anchor, Terminal, ChevronDown, Info, Wrench, Share2, Flame } from "lucide-react";
+import { Hammer, LayoutDashboard, FileSpreadsheet, GitCompare, LogOut, Anchor, Terminal, ChevronDown, Info, Wrench, Share2, Flame, Bot, Paintbrush } from "lucide-react";
 
 export default function Header() {
     const pathname = usePathname();
@@ -15,6 +15,7 @@ export default function Header() {
     if (pathname === "/") return null;
 
     const toolsItems = [
+        { name: "AI Report Assistant", href: "/ai-reports", icon: Bot },
         { name: "Compare Access", href: "/compare", icon: GitCompare },
         { name: "Batch Provision", href: "/batch", icon: FileSpreadsheet },
         { name: "Workgroups", href: "/workgroup", icon: Hammer },
@@ -22,6 +23,7 @@ export default function Header() {
         { name: "Access Map", href: "/visualizer", icon: Share2 },
         { name: "Firefighter", href: "/firefighter", icon: Flame },
         { name: "Rule Runner", href: "/rule-runner", icon: Terminal },
+        { name: "Product Customizer", href: "/product-customization", icon: Paintbrush },
     ];
 
     return (

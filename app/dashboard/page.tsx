@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/ui/auth-context";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, User, Mail, Briefcase, UserCheck, XCircle, GitCompare, GitBranch, Plus, FileText, Hammer, Terminal, Share2, Wrench, Flame, ClipboardCheck } from "lucide-react";
+import { Loader2, User, Mail, Briefcase, UserCheck, XCircle, GitCompare, GitBranch, Plus, FileText, Hammer, Terminal, Share2, Wrench, Flame, ClipboardCheck, Bot } from "lucide-react";
 // ... imports ...
 
 // ... inside Tools Section grid ...
@@ -172,6 +172,17 @@ export default function Dashboard() {
                                     <h3 className="font-semibold text-slate-200">Cert Impact Report</h3>
                                 </div>
                                 <p className="text-xs text-slate-400">Analyze "Before vs After" outcomes of Access Certifications.</p>
+                            </Link>
+
+                            {/* AI Report Assistant Card */}
+                            <Link href="/ai-reports" className="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 p-4 hover:bg-slate-900 transition-all hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20 group-hover:text-indigo-300 transition-colors">
+                                        <Bot className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-200">AI Report Assistant</h3>
+                                </div>
+                                <p className="text-xs text-slate-400">Natural language queries to generate SailPoint reports with AI.</p>
                             </Link>
                         </div>
                     </div>

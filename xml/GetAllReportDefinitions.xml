@@ -1,0 +1,87 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow name="GetAllReportDefinitions" type="LCMProvisioning">
+  <Variable name="reportList" output="true" />
+  
+  <Step name="FetchReports" icon="Analysis">
+    <Script>
+      <Source><![CDATA[
+        import sailpoint.object.*;
+        import sailpoint.tools.Util;
+        import java.util.*;
+        import org.json.JSONArray;
+
+        List reports = new ArrayList();
+        
+        // Query for all TaskDefinitions
+        // In SailPoint, most reports are just TaskDefinitions. 
+        // We can filter for those that look like reports if needed, but fetching all is safer for discovery.
+        QueryOptions qo = new QueryOptions();
+        Filter nameFilter = Filter.like("name", "Report", Filter.MatchMode.ANYWHERE);
+        Filter descFilter = Filter.like("description", "Report", Filter.MatchMode.ANYWHERE);
+        qo.addFilter(Filter.or(nameFilter, descFilter));
+        qo.addOrdering("name", true);
+        
+        Iterator it = context.search(TaskDefinition.class, qo);
+        
+        while (it.hasNext()) {
+            TaskDefinition td = (TaskDefinition) it.next();
+            
+            // Basic filtering to reduce noise (optional, can be refined)
+            // We'll return everything for now to let the frontend decide or user to see.
+            
+            Map map = new HashMap();
+            map.put("name", td.getName());
+            map.put("description", td.getDescription());
+            map.put("type", td.getType() != null ? td.getType().toString() : "Generic");
+            map.put("executor", td.getExecutor());
+            
+            // Get Arguments from Signature
+            List argsList = new ArrayList();
+            if (td.getSignature() != null) {
+                List args = td.getSignature().getArguments();
+                if (args != null) {
+                    for (Object o : args) {
+                        Argument arg = (Argument) o;
+                        Map argMap = new HashMap();
+                        argMap.put("name", arg.getName());
+                        argMap.put("type", arg.getType());
+                        argMap.put("prompt", arg.getPrompt());
+                        argMap.put("multi", arg.isMulti());
+                        argsList.add(argMap);
+                    }
+                }
+            }
+            map.put("arguments", argsList);
+            
+            reports.add(map);
+        }
+        Util.flushIterator(it);
+        
+        // Serialize to JSON
+        String json = new JSONArray(reports).toString();
+        
+        // Write to shared temp file for the Frontend to read
+        try {
+            // Hardcoded path to ensure alignment with frontend
+            String filePath = "c:/Program Files/Apache Software Foundation/Tomcat 9.0/temp/report_registry.json";
+            
+            java.io.FileWriter fw = new java.io.FileWriter(filePath, false); // Overwrite
+            fw.write(json);
+            fw.close();
+            
+            if (wfcontext != null) {
+                wfcontext.getWorkflowCase().put("registryPath", filePath);
+                wfcontext.getWorkflowCase().put("reportList", json);
+            }
+        } catch (Exception e) {
+            if (wfcontext != null) {
+                wfcontext.getWorkflowCase().put("error", e.toString());
+            }
+        }
+        
+        return json;
+      ]]></Source>
+    </Script>
+  </Step>
+</Workflow>
