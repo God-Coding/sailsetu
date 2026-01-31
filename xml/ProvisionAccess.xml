@@ -34,6 +34,7 @@
           import sailpoint.object.ProvisioningPlan.AttributeRequest;
           import sailpoint.object.ProvisioningPlan.Operation;
           import sailpoint.api.SailPointContext;
+          import sailpoint.object.Link;
           import java.util.List;
           import java.util.Map;
           import java.util.ArrayList;
@@ -42,7 +43,8 @@
           workflow.put("debugTrace", trace);
 
           ProvisioningPlan plan = new ProvisioningPlan();
-          plan.setIdentity(context.getObjectByName(Identity.class, identityName));
+          Identity identityObj = context.getObjectByName(Identity.class, identityName);
+          plan.setIdentity(identityObj);
           
           List itemsToProcess = new ArrayList();
 
@@ -140,7 +142,21 @@
                                    if (acctReq == null) {
                                        acctReq = new AccountRequest();
                                        acctReq.setApplication(appName);
-                                       acctReq.setNativeIdentity(identityName);
+                                       
+                                       String targetNativeId = identityName;
+                                       if (identityObj != null) {
+                                            List links = identityObj.getLinks();
+                                            if (links != null) {
+                                                for (Object l : links) {
+                                                    Link link = (Link) l;
+                                                    if (appName.equals(link.getApplicationName())) {
+                                                         targetNativeId = link.getNativeIdentity();
+                                                         break;
+                                                    }
+                                                }
+                                            }
+                                       }
+                                       acctReq.setNativeIdentity(targetNativeId);
                                        acctReq.setOperation(AccountRequest.Operation.Modify);
                                        plan.add(acctReq);
                                    }
@@ -170,13 +186,13 @@
        <Arg name="flow" value="ref:flow"/>
        <Arg name="identityName" value="ref:identityName"/>
        <Arg name="approvalScheme" value="ref:approvalScheme"/>
+       <Arg name="notificationScheme" value="none"/>
        <Arg name="source" value="Batch"/>
-       <Arg name="optimisticProvisioning" value="true"/>
-       <Return name="ident
+       <Arg name="optimisticProvisioning" value="false"/>
+       <Return name="identityRequestId" to="identityRequestId"/>
        <Return name="project" to="project"/>
        <Transition to="DebugOutput"/>
     </Step>
-741                                                
     <Step name="DebugOutput" posX="400" posY="10">
       <Script>
         <Source>

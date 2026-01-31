@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/ui/auth-context";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, User, Mail, Briefcase, UserCheck, XCircle, GitCompare, GitBranch, Plus, FileText, Hammer, Terminal, Share2, Wrench, Flame, ClipboardCheck, Bot } from "lucide-react";
+import { Loader2, User, Mail, Briefcase, UserCheck, XCircle, GitCompare, GitBranch, Plus, FileText, Hammer, Terminal, Share2, Wrench, Flame, ClipboardCheck, Bot, ShieldAlert, Copy } from "lucide-react";
 // ... imports ...
 
 // ... inside Tools Section grid ...
@@ -43,15 +43,23 @@ import { Loader2, User, Mail, Briefcase, UserCheck, XCircle, GitCompare, GitBran
 </Link>
 
 export default function Dashboard() {
-    const { url, isAuthenticated } = useAuth();
+    const { url, isAuthenticated, isLoading } = useAuth();
     const router = useRouter();
 
     // Protected Route Check
     useEffect(() => {
-        if (!isAuthenticated) {
+        if (!isLoading && !isAuthenticated) {
             router.push("/");
         }
-    }, [isAuthenticated, router]);
+    }, [isAuthenticated, isLoading, router]);
+
+    if (isLoading) {
+        return (
+            <main className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            </main>
+        );
+    }
 
     if (!isAuthenticated) return null;
 
@@ -127,6 +135,28 @@ export default function Dashboard() {
                                     <h3 className="font-semibold text-slate-200">Rule Runner</h3>
                                 </div>
                                 <p className="text-xs text-slate-400">Interactive sandbox to execute BeanShell rules and debug logic.</p>
+                            </Link>
+
+                            {/* Leaver Cleanup Card */}
+                            <Link href="/leaver-cleanup" className="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 p-4 hover:bg-slate-900 transition-all hover:border-rose-500/50 hover:shadow-lg hover:shadow-rose-500/10">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 group-hover:bg-rose-500/20 group-hover:text-rose-300 transition-colors">
+                                        <ShieldAlert className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-200">Leaver Cleanup</h3>
+                                </div>
+                                <p className="text-xs text-slate-400">Scan for inactive identities with residual access and revoke them.</p>
+                            </Link>
+
+                            {/* Application Cloner Card */}
+                            <Link href="/app-cloner" className="group relative overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 p-4 hover:bg-slate-900 transition-all hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/10">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20 group-hover:text-cyan-300 transition-colors">
+                                        <Copy className="h-5 w-5" />
+                                    </div>
+                                    <h3 className="font-semibold text-slate-200">Application Cloner</h3>
+                                </div>
+                                <p className="text-xs text-slate-400">Deep copy existing applications to create new templates.</p>
                             </Link>
 
 

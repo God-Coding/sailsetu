@@ -1,0 +1,109 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow name="CloneApplication" type="Provisioning" libraries="Identity">
+  <Variable name="sourceAppName" input="true" />
+  <Variable name="newAppName" input="true" />
+  <Variable name="status" output="true" />
+  <Variable name="message" output="true" />
+
+  <Step icon="Start" name="Start" posX="25" posY="10">
+    <Transition to="Clone App"/>
+  </Step>
+
+  <Step name="Clone App" posX="150" posY="10" resultVariable="status">
+    <Script>
+      <Source>
+        <![CDATA[
+        import sailpoint.object.Application;
+        import sailpoint.object.Schema;
+        import sailpoint.object.AttributeDefinition;
+        import sailpoint.tools.xml.XMLObjectFactory;
+        import java.util.List;
+        import org.apache.log4j.Logger;
+
+        Logger log = Logger.getLogger("workflow.CloneApplication");
+
+        log.info("=== Starting CloneApplication Workflow ===");
+        log.info("Source: " + sourceAppName + " -> Target: " + newAppName);
+
+        if (sourceAppName == null || newAppName == null) {
+            String errMsg = "Missing parameters";
+            log.error(errMsg);
+            wfcontext.setVariable("message", errMsg);
+            return "Failure";
+        }
+
+        log.info("Fetching source application...");
+        Application source = context.getObjectByName(Application.class, sourceAppName);
+        if (source == null) {
+            String errMsg = "Source Application '" + sourceAppName + "' not found.";
+            log.error(errMsg);
+            wfcontext.setVariable("message", errMsg);
+            return "Failure";
+        }
+        log.info("Source found: ID=" + source.getId());
+
+        log.info("Checking if target exists...");
+        Application existing = context.getObjectByName(Application.class, newAppName);
+        if (existing != null) {
+            String errMsg = "Application '" + newAppName + "' already exists (ID=" + existing.getId() + ")";
+            log.error(errMsg);
+            wfcontext.setVariable("message", errMsg);
+            return "Failure";
+        }
+        log.info("Target name available.");
+
+        try {
+            log.info("Using XML serialization for deep copy...");
+            String xml = source.toXml();
+            log.info("Serialized to XML (" + xml.length() + " chars)");
+            
+            log.info("Parsing XML to new object...");
+            Application newApp = (Application) XMLObjectFactory.getInstance().parseXml(context, xml, false);
+            
+            log.info("Setting new name and resetting ID...");
+            newApp.setName(newAppName);
+            newApp.setId(null);
+            
+            // Recursively null all IDs to avoid Hibernate session conflicts
+            log.info("Nullifying Schema IDs...");
+            List schemas = newApp.getSchemas();
+            if (schemas != null) {
+                for (Object schemaObj : schemas) {
+                    Schema schema = (Schema) schemaObj;
+                    schema.setId(null);
+                }
+                log.info("Nullified " + schemas.size() + " schema IDs");
+            }
+            
+            log.info("Saving application...");
+            context.saveObject(newApp);
+            context.commitTransaction();
+            context.decache();
+            
+            // Verify
+            Application verify = context.getObjectByName(Application.class, newAppName);
+            if (verify != null) {
+                log.info("SUCCESS: Application '" + newAppName + "' created with ID=" + verify.getId());
+                String successMsg = "Successfully cloned '" + sourceAppName + "' to '" + newAppName + "' (ID: " + verify.getId() + ")";
+                wfcontext.setVariable("message", successMsg);
+                return "Success";
+            } else {
+                log.error("Verification failed");
+                wfcontext.setVariable("message", "Save completed but verification failed");
+                return "Failure";
+            }
+        } catch (Exception e) {
+            String errMsg = "Error: " + e.getMessage();
+            log.error(errMsg, e);
+            wfcontext.setVariable("message", errMsg);
+            return "Failure";
+        }
+        ]]>
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+  </Step>
+
+  <Step icon="Stop" name="Stop" posX="300" posY="10"/>
+</Workflow>

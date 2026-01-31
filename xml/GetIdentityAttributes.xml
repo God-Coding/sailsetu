@@ -1,0 +1,81 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow name="GetIdentityAttributes" type="Research" libraries="Identity">
+  <Variable name="attributes" output="true" />
+  
+  <Step icon="Start" name="Start" posX="25" posY="10">
+    <Transition to="Search"/>
+  </Step>
+
+  <Step name="Search" posX="150" posY="10" resultVariable="attributes">
+    <Script>
+      <Source>
+        <![CDATA[
+        import sailpoint.object.ObjectConfig;
+        import sailpoint.object.Identity;
+        import java.util.ArrayList;
+        import java.util.List;
+        import java.util.Set;
+        import java.util.HashSet;
+        import java.util.Collections;
+
+        Set uniqueNames = new HashSet();
+        
+        // 1. Try Schema (ObjectConfig) using getObjectAttributes
+        try {
+            ObjectConfig oc = context.getObjectByName(ObjectConfig.class, "Identity");
+            if (oc != null) {
+                // User suggested getObjectAttributes() - returns List<ObjectAttribute>
+                List defs = oc.getObjectAttributes();
+                if (defs != null) {
+                    for (Object o : defs) {
+                         try {
+                              String n = (String) o.getClass().getMethod("getName").invoke(o);
+                              uniqueNames.add(n);
+                         } catch(Exception ex) {
+                              // ignore
+                         }
+                    }
+                }
+            }
+        } catch(Exception e) {
+            // Ignore schema errors
+        }
+        
+        // Ensure standard fields
+        uniqueNames.add("inactive");
+        uniqueNames.add("name");
+        uniqueNames.add("displayName");
+
+        List results = new ArrayList(uniqueNames);
+        Collections.sort(results);
+        
+        // Manual JSON serialization to safely return to API
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for (int i=0; i<results.size(); i++) {
+             sb.append("\"");
+             sb.append(results.get(i));
+             sb.append("\"");
+             if (i < results.size() - 1) sb.append(",");
+        }
+        sb.append("]");
+        
+        String finalJson = sb.toString();
+        
+        // Double binding: Context + Return
+        if (wfcontext != null) {
+            wfcontext.getWorkflowCase().put("attributes", finalJson);
+        }
+        
+        return finalJson;
+        ]]>
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+  </Step>
+
+  <Step icon="Stop" name="Stop" posX="300" posY="10">
+    <Return name="attributes" to="attributes"/>
+  </Step>
+</Workflow>

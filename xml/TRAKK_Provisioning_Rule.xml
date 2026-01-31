@@ -59,6 +59,7 @@
   <![CDATA[
   import java.sql.Connection;
   import java.sql.PreparedStatement;
+  import java.sql.ResultSet;
   import java.sql.SQLException;
   import java.sql.Types;
   import java.util.List;
@@ -85,9 +86,26 @@
   String nativeIdentity = request.getNativeIdentity();
   String operation = request.getOperation() != null ? request.getOperation().toString() : "";
 
-  log.debug("TRAKK Provisioning: Op=" + operation + ", ID=" + nativeIdentity);
+  System.out.println("DEBUG: TRAKK Provisioning. Op=" + operation + ", ID=" + nativeIdentity);
+  System.out.println("DEBUG: TRAKK Rule Start. Connection: " + (connection!=null ? "Valid" : "NULL"));
 
   try {
+      // Resolve ID if not Create
+      if (!AccountRequest.Operation.Create.equals(request.getOperation())) {
+           PreparedStatement ps = connection.prepareStatement("SELECT id FROM users WHERE username = ?");
+           ps.setString(1, nativeIdentity);
+           ResultSet rs = ps.executeQuery();
+           if (rs.next()) {
+               String dbId = rs.getString("id");
+               System.out.println("DEBUG: Resolved Username '" + nativeIdentity + "' to DB ID '" + dbId + "'");
+               nativeIdentity = dbId;
+           } else {
+               System.out.println("DEBUG: No user found with username '" + nativeIdentity + "'. Assuming NativeIdentity IS the ID.");
+           }
+           rs.close();
+           ps.close();
+      }
+
       if (AccountRequest.Operation.Create.equals(request.getOperation())) {
           // --- CREATE ACCOUNT ---
           // Generate a new ID if nativeIdentity is missing (or use the one provided by plan)
@@ -99,58 +117,95 @@
                newId = Long.toHexString(Double.doubleToLongBits(Math.random())).substring(0, 8);
           }
           
-          String username = (String) request.getAttribute("username"); // IdentityIQ Name
+          String username = (String) request.getArgument("username"); // IdentityIQ Name
           if (username == null) username = "unknown";
           
-          String firstname = (String) request.getAttribute("firstname");
-          String lastname = (String) request.getAttribute("lastname");
-          String email = (String) request.getAttribute("email");
+          String firstname = (String) request.getArgument("firstname");
+          String lastname = (String) request.getArgument("lastname");
+          String email = (String) request.getArgument("email");
           
-          PreparedStatement stmt = connection.prepareStatement(
-              "INSERT INTO users (id, username, firstname, lastname, email, status) VALUES (?, ?, ?, ?, ?, ?)"
-          );
+          // Check if user already exists
+          boolean userExists = false;
+          PreparedStatement checkStmt = connection.prepareStatement("SELECT count(*) FROM users WHERE id = ?");
+          checkStmt.setString(1, newId);
+          ResultSet rs = checkStmt.executeQuery();
+          if (rs.next() && rs.getInt(1) > 0) {
+              userExists = true;
+              System.out.println("DEBUG: User " + newId + " already exists. Skipping INSERT.");
+          }
+          rs.close();
+          checkStmt.close();
           
-          stmt.setString(1, newId);
-          stmt.setString(2, username);
-          stmt.setString(3, firstname);
-          stmt.setString(4, lastname);
-          stmt.setString(5, email);
-          stmt.setString(6, "Active");
-          
-          stmt.executeUpdate();
-          stmt.close();
+          if (!userExists) {
+              PreparedStatement stmt = connection.prepareStatement(
+                  "INSERT INTO users (id, username, firstname, lastname, email) VALUES (?, ?, ?, ?, ?)"
+              );
+              
+              stmt.setString(1, newId);
+              stmt.setString(2, username);
+              stmt.setString(3, firstname);
+              stmt.setString(4, lastname);
+              stmt.setString(5, email);
+              // stmt.setString(6, "Active"); // Schema does not have status column
+              
+              int rows = stmt.executeUpdate();
+              System.out.println("DEBUG: Create User Rows Affected: " + rows);
+              stmt.close();
+          }
           
           // If there are attribute requests (initial entitlements) in the create plan
           if (request.getAttributeRequests() != null) {
               for (AttributeRequest attr : request.getAttributeRequests()) {
                   if ("capability".equals(attr.getName())) {
                       Object val = attr.getValue();
-                      if (val instanceof List) {
-                          for (String v : (List) val) {
-                              if (v != null) {
-                                  PreparedStatement stmt2 = connection.prepareStatement(
-                                     "INSERT INTO capabilities (id, capability, description) VALUES (?, ?, ?)"
-                                  );
-                                  stmt2.setString(1, newId);
-                                  stmt2.setString(2, v);
-                                  stmt2.setString(3, "Added by IIQ");
-                                  stmt2.executeUpdate();
-                                  stmt2.close();
-                              }
-                          }
-                      } else {
-                          String v = (String) val;
-                          if (v != null) {
-                              PreparedStatement stmt2 = connection.prepareStatement(
-                                 "INSERT INTO capabilities (id, capability, description) VALUES (?, ?, ?)"
-                              );
-                              stmt2.setString(1, newId);
-                              stmt2.setString(2, v);
-                              stmt2.setString(3, "Added by IIQ");
-                              stmt2.executeUpdate();
-                              stmt2.close();
-                          }
-                      }
+                       if (val instanceof List) {
+                           for (String v : (List) val) {
+                               if (v != null) {
+                                   boolean capExists = false;
+                                   PreparedStatement capCheck = connection.prepareStatement("SELECT count(*) FROM capabilities WHERE id=? AND capability=?");
+                                   capCheck.setString(1, newId);
+                                   capCheck.setString(2, v);
+                                   ResultSet rsc = capCheck.executeQuery();
+                                   if (rsc.next() && rsc.getInt(1) > 0) capExists = true;
+                                   rsc.close();
+                                   capCheck.close();
+
+                                   if (!capExists) {
+                                       PreparedStatement stmt2 = connection.prepareStatement(
+                                          "INSERT INTO capabilities (id, capability, description) VALUES (?, ?, ?)"
+                                       );
+                                       stmt2.setString(1, newId);
+                                       stmt2.setString(2, v);
+                                       stmt2.setString(3, "Added by IIQ");
+                                       stmt2.executeUpdate();
+                                       stmt2.close();
+                                   }
+                               }
+                           }
+                       } else {
+                           String v = (String) val;
+                           if (v != null) {
+                               boolean capExists = false;
+                               PreparedStatement capCheck = connection.prepareStatement("SELECT count(*) FROM capabilities WHERE id=? AND capability=?");
+                               capCheck.setString(1, newId);
+                               capCheck.setString(2, v);
+                               ResultSet rsc = capCheck.executeQuery();
+                               if (rsc.next() && rsc.getInt(1) > 0) capExists = true;
+                               rsc.close();
+                               capCheck.close();
+
+                               if (!capExists) {
+                                   PreparedStatement stmt2 = connection.prepareStatement(
+                                      "INSERT INTO capabilities (id, capability, description) VALUES (?, ?, ?)"
+                                   );
+                                   stmt2.setString(1, newId);
+                                   stmt2.setString(2, v);
+                                   stmt2.setString(3, "Added by IIQ");
+                                   stmt2.executeUpdate();
+                                   stmt2.close();
+                               }
+                           }
+                       }
                   }
               }
           }
@@ -167,112 +222,168 @@
                    String op = attr.getOperation().toString();
                    Object val = attr.getValue();
                    
-                       if ("capability".equalsIgnoreCase(name)) {
-                           // Handle Entitlements
-                           if (val instanceof List) {
-                               for (String v : (List) val) {
-                                   if ("Add".equals(op)) {
-                                       if (v != null) {
-                                            PreparedStatement stmt = connection.prepareStatement(
-                                                "INSERT INTO capabilities (id, capability, description) VALUES (?, ?, ?)"
-                                            );
-                                            stmt.setString(1, nativeIdentity);
-                                            stmt.setString(2, v);
-                                            stmt.setString(3, "Added by IIQ"); 
-                                            stmt.executeUpdate();
-                                            stmt.close();
-                                       }
-                                   } else if ("Remove".equals(op)) {
-                                       if (v != null) {
-                                            PreparedStatement stmt = connection.prepareStatement(
-                                                "DELETE FROM capabilities WHERE id = ? AND capability = ?"
-                                            );
-                                            stmt.setString(1, nativeIdentity);
-                                            stmt.setString(2, v);
-                                            stmt.executeUpdate();
-                                            stmt.close();
-                                       }
-                                   }-
-                               }
-                           } else {
-                               String v = (String) val;
-                               if ("Add".equals(op)) {
-                                   if (v != null) {
-                                        PreparedStatement stmt = connection.prepareStatement(
-                                            "INSERT INTO capabilities (id, capability, description) VALUES (?, ?, ?)"
-                                        );
-                                        stmt.setString(1, nativeIdentity);
-                                        stmt.setString(2, v);
-                                        stmt.setString(3, "Added by IIQ"); 
-                                        stmt.executeUpdate();
-                                        stmt.close();
-                                   }
-                               } else if ("Remove".equals(op)) {
-                                   if (v != null) {
-                                        PreparedStatement stmt = connection.prepareStatement(
-                                            "DELETE FROM capabilities WHERE id = ? AND capability = ?"
-                                        );
-                                        stmt.setString(1, nativeIdentity);
-                                        stmt.setString(2, v);
-                                        stmt.executeUpdate();
-                                        stmt.close();
-                                   }
-                               }
-                           }
-                       } else {
-                       // Handle Scalar Updates (e.g. update email, lastname)
-                       // Assuming simplistic single value update
-                       if ("IIQDisabled".equals(name)) {
-                           // Skip handled by Enable/Disable ops usually, but if attribute-driven:
-                           continue;
-                       }
-                       
-                       // Only update known columns
-                       if (name.equals("email") || name.equals("firstname") || name.equals("lastname")) {
-                            PreparedStatement stmt = connection.prepareStatement(
-                                "UPDATE users SET " + name + " = ? WHERE id = ?"
-                            );
-                            stmt.setString(1, (String) val);
-                            stmt.setString(2, nativeIdentity);
-                            stmt.executeUpdate();
-                            stmt.close();
-                       }
-                   }
+                        if ("capability".equalsIgnoreCase(name) || "assignedRoles".equalsIgnoreCase(name)) {
+                            // Handle Entitlements & Roles
+                            System.out.println("DEBUG: Processing capability/role attribute. OP=" + op + ", Val=" + val);
+                            
+                            if (val instanceof List) {
+                                for (String v : (List) val) {
+                                    if ("Add".equals(op)) {
+                                        if (v != null) {
+                                            boolean capExists = false;
+                                            PreparedStatement capCheck = connection.prepareStatement("SELECT count(*) FROM capabilities WHERE id=? AND capability=?");
+                                            capCheck.setString(1, nativeIdentity);
+                                            capCheck.setString(2, v);
+                                            ResultSet rsc = capCheck.executeQuery();
+                                            if (rsc.next() && rsc.getInt(1) > 0) capExists = true;
+                                            rsc.close();
+                                            capCheck.close();
+
+                                            if (!capExists) {
+                                                 System.out.println("DEBUG: Adding capability: " + v);
+                                                 PreparedStatement stmt = connection.prepareStatement(
+                                                     "INSERT INTO capabilities (id, capability, description) VALUES (?, ?, ?)"
+                                                 );
+                                                 stmt.setString(1, nativeIdentity);
+                                                 stmt.setString(2, v);
+                                                 stmt.setString(3, "Added by IIQ"); 
+                                                 int rows = stmt.executeUpdate();
+                                                 System.out.println("DEBUG: Add Cap Rows Affected: " + rows);
+                                                 stmt.close();
+                                            } else {
+                                                System.out.println("DEBUG: Capability " + v + " already exists. Skipping Add.");
+                                            }
+                                        }
+                                    } else if ("Remove".equals(op)) {
+                                        if (v != null) {
+                                             System.out.println("DEBUG: Removing capability: " + v);
+                                             PreparedStatement stmt = connection.prepareStatement(
+                                                 "DELETE FROM capabilities WHERE id = ? AND capability = ?"
+                                             );
+                                             stmt.setString(1, nativeIdentity);
+                                             stmt.setString(2, v);
+                                             int rows = stmt.executeUpdate();
+                                             System.out.println("DEBUG: Remove Cap Rows Affected: " + rows);
+                                             stmt.close();
+                                        }
+                                    }
+                                }
+                            } else {
+                                String v = (String) val;
+                                if ("Add".equals(op)) {
+                                    if (v != null) {
+                                         boolean capExists = false;
+                                         PreparedStatement capCheck = connection.prepareStatement("SELECT count(*) FROM capabilities WHERE id=? AND capability=?");
+                                         capCheck.setString(1, nativeIdentity);
+                                         capCheck.setString(2, v);
+                                         ResultSet rsc = capCheck.executeQuery();
+                                         if (rsc.next() && rsc.getInt(1) > 0) capExists = true;
+                                         rsc.close();
+                                         capCheck.close();
+
+                                         if (!capExists) {
+                                             System.out.println("DEBUG: Adding capability (scalar): " + v);
+                                             PreparedStatement stmt = connection.prepareStatement(
+                                                 "INSERT INTO capabilities (id, capability, description) VALUES (?, ?, ?)"
+                                             );
+                                             stmt.setString(1, nativeIdentity);
+                                             stmt.setString(2, v);
+                                             stmt.setString(3, "Added by IIQ"); 
+                                             int rows = stmt.executeUpdate();
+                                             System.out.println("DEBUG: Add Cap Scalar Rows Affected: " + rows);
+                                             stmt.close();
+                                         } else {
+                                             System.out.println("DEBUG: Capability " + v + " already exists. Skipping Add.");
+                                         }
+                                    }
+                                } else if ("Remove".equals(op)) {
+                                    if (v != null) {
+                                         System.out.println("DEBUG: Removing capability (scalar): " + v);
+                                         PreparedStatement stmt = connection.prepareStatement(
+                                             "DELETE FROM capabilities WHERE id = ? AND capability = ?"
+                                         );
+                                         stmt.setString(1, nativeIdentity);
+                                         stmt.setString(2, v);
+                                         int rows = stmt.executeUpdate();
+                                         System.out.println("DEBUG: Remove Cap Scalar Rows Affected: " + rows);
+                                         stmt.close();
+                                    }
+                                }
+                            }
+                        } else {
+                        // Handle Scalar Updates (e.g. update email, lastname)
+                        // Assuming simplistic single value update
+                        if ("IIQDisabled".equals(name)) {
+                            // Skip handled by Enable/Disable ops usually, but if attribute-driven:
+                            continue;
+                        }
+                        
+                        // Only update known columns
+                        if (name.equals("email") || name.equals("firstname") || name.equals("lastname")) {
+                             System.out.println("DEBUG: Updating scalar attribute " + name);
+                             PreparedStatement stmt = connection.prepareStatement(
+                                 "UPDATE users SET " + name + " = ? WHERE id = ?"
+                             );
+                             stmt.setString(1, (String) val);
+                             stmt.setString(2, nativeIdentity);
+                             int rows = stmt.executeUpdate();
+                             System.out.println("DEBUG: Update " + name + " Rows Affected: " + rows);
+                             stmt.close();
+                        } else {
+                             System.out.println("DEBUG: Ignored unknown attribute: " + name);
+                        }
+                    }
               }
           }
           result.setStatus(ProvisioningResult.STATUS_COMMITTED);
           
       } else if (AccountRequest.Operation.Enable.equals(request.getOperation())) {
-           PreparedStatement stmt = connection.prepareStatement("UPDATE users SET status = 'Active' WHERE id = ?");
-           stmt.setString(1, nativeIdentity);
-           stmt.executeUpdate();
-           stmt.close();
+           // PreparedStatement stmt = connection.prepareStatement("UPDATE users SET status = 'Active' WHERE id = ?");
+           // stmt.setString(1, nativeIdentity);
+           // stmt.executeUpdate();
+           // stmt.close();
+           log.warn("Enable operation requested but no 'status' column in schema. Skipping.");
+           System.out.println("DEBUG: Enable requested (Skipped per schema)");
            result.setStatus(ProvisioningResult.STATUS_COMMITTED);
            
       } else if (AccountRequest.Operation.Disable.equals(request.getOperation())) {
-           PreparedStatement stmt = connection.prepareStatement("UPDATE users SET status = 'Disabled' WHERE id = ?");
-           stmt.setString(1, nativeIdentity);
-           stmt.executeUpdate();
-           stmt.close();
+           // PreparedStatement stmt = connection.prepareStatement("UPDATE users SET status = 'Disabled' WHERE id = ?");
+           // stmt.setString(1, nativeIdentity);
+           // stmt.executeUpdate();
+           // stmt.close();
+           log.warn("Disable operation requested but no 'status' column in schema. Skipping.");
+           System.out.println("DEBUG: Disable requested (Skipped per schema)");
            result.setStatus(ProvisioningResult.STATUS_COMMITTED);
            
       } else if (AccountRequest.Operation.Delete.equals(request.getOperation())) {
            // Delete entitlements first (FK constraint usually requires this)
+           System.out.println("DEBUG: Deleting User " + nativeIdentity);
            PreparedStatement stmt = connection.prepareStatement("DELETE FROM capabilities WHERE id = ?");
            stmt.setString(1, nativeIdentity);
-           stmt.executeUpdate();
+           int rows1 = stmt.executeUpdate();
            stmt.close();
            
            // Delete user
            stmt = connection.prepareStatement("DELETE FROM users WHERE id = ?");
            stmt.setString(1, nativeIdentity);
-           stmt.executeUpdate();
+           int rows2 = stmt.executeUpdate();
            stmt.close();
            
+           System.out.println("DEBUG: Delete User Rows: Caps=" + rows1 + ", Users=" + rows2);
            result.setStatus(ProvisioningResult.STATUS_COMMITTED);
       }
+       
+       if (!connection.getAutoCommit()) {
+           System.out.println("DEBUG: Committing transaction...");
+           connection.commit();
+           System.out.println("DEBUG: Transaction committed.");
+       } else {
+           System.out.println("DEBUG: Connection is AutoCommit, changes applied immediately.");
+       }
 
   } catch (SQLException e) {
+      System.out.println("DEBUG: SQL Exception: " + e.getMessage());
+      e.printStackTrace(); // Print full stack to stdout
       result.setStatus(ProvisioningResult.STATUS_FAILED);
       result.addError(e);
       log.error("TRAKK Provisioning Error: " + e.getMessage());

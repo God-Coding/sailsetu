@@ -1,0 +1,147 @@
+{
+  "category": "Rule",
+  "description": "BeanShell rule examples from SailPoint examplerules.xml",
+  "mandatoryFile": "MANDATORY_rules_reference.md",
+  "defaultFile": "default_rule.md",
+  "examples": [
+    {
+      "file": "example_correlation_rule.md",
+      "description": "Correlation rule (type='Correlation') matches accounts to identities during aggregation. Returns Map with identityAttributeName/Value. Uses email, employeeNumber, username for matching.",
+      "useCase": "Match accounts to identities during aggregation, prevent duplicate identities, correlate by email/employeeID"
+    },
+
+    {
+      "file": "example_entitlement_operations.md",
+      "description": "Entitlement operations - counting, querying, filtering ManagedAttributes and Link objects",
+      "useCase": "Entitlement queries, ManagedAttribute operations, Link entitlement extraction",
+      "sections": [
+        {
+          "title": "Example 1: Count All Entitlement Definitions",
+          "startLine": 13,
+          "endLine": 50,
+          "description": "Count total number of ManagedAttribute objects in the system using QueryOptions and Iterator",
+          "useCase": "System statistics, reporting total entitlements, counting definitions"
+        },
+        {
+          "title": "Example 2: Get Entitlements for Specific Application",
+          "startLine": 53,
+          "endLine": 100,
+          "description": "Query ManagedAttributes filtered by application name, returns list of entitlements for one app, get entitlements attributes like displayName, value, description",
+          "useCase": "Application-specific entitlements, filter by app name, get entitlements for AD/LDAP"
+        },
+        {
+          "title": "Example 4: Get All Entitlements for Specific Identity",
+          "startLine": 150,
+          "endLine": 197,
+          "description": "Two-step process: Get identity by name, then get all Link entitlements for that identity",
+          "useCase": "User entitlement audit, query by identity name, get all entitlements for a user"
+        },
+        {
+          "title": "Example 5: Set Description for ManagedAttribute",
+          "startLine": 207,
+          "endLine": 261,
+          "description": "Update the description field of a ManagedAttribute by searching for it by app name and value, then using addDescription method",
+          "useCase": "Set description, update entitlement metadata, add localized descriptions to entitlements"
+        },
+        {
+          "title": "Example 6: Set Owner for Entitlement \"input\"",
+          "startLine": 261,
+          "endLine": 310,
+          "description": "Sets the owner of the ManagedAttribute (entitlement) with value \"input\". Looks up the entitlement, assigns a new owner Identity, and persists the change.",
+          "useCase": "Assign owner to a specific entitlement, update ownership, automate entitlement management"
+        },
+        {
+          "title": "Example 7: Set requestable false for entitlement \"input\"",
+          "startLine": 311,
+          "endLine": 357,
+          "description": "Sets the requestable flag to false for a ManagedAttribute (entitlement) with value \"input\". Prevents users from requesting the entitlement via the UI.",
+          "useCase": "Control entitlement requestability, enforce policy, hide entitlement from request catalog"
+        },
+        {
+          "title": "Example 8: Get Members With Specific Entitlement",
+          "startLine": 359,
+          "endLine": 425,
+          "description": "Get all identities that have a specific entitlement using official SailPoint APIs.",
+          "useCase": "Entitlement audit, find members for a given entitlement, compliance reporting"
+        },
+        {
+          "title": "Example 9: Find Roles Granting Entitlement",
+          "startLine": 428,
+          "endLine": 506,
+          "description": "Find which Bundles (roles) contain specific ManagedAttributes (entitlements) using Bundle.getProfiles() and Profile.getConstraints()",
+          "useCase": "Role-to-entitlement mapping, reverse entitlement lookup, audit which roles grant an AD group, find roles for permissions"
+        },
+        {
+          "title": "Example 10: Get Recently Modified Entitlements",
+          "startLine": 509,
+          "endLine": 566,
+          "description": "Fetches entitlements (ManagedAttributes) that have been modified in the last X days. Useful for auditing recent changes or syncing updates.",
+          "useCase": "Audit recent entitlement changes, find modified entitlements, delta aggregation custom logic"
+        }
+      ]
+    },
+    {
+      "file": "example_identity_operations.md",
+      "description": "Identity operations - counting, searching, updating, and checking capabilities of Identity objects",
+      "useCase": "Identity management, finding identities, updating attributes, checking roles and capabilities",
+      "sections": [
+        {
+          "title": "Example 1: Count All Identities",
+          "startLine": 13,
+          "endLine": 35,
+          "description": "Counts the total number of Identity objects in the system.",
+          "useCase": "System statistics, reporting total identities"
+        },
+        {
+          "title": "Example 2: Get Identity by Name",
+          "startLine": 49,
+          "endLine": 67,
+          "description": "Retrieves a specific identity by its unique name.",
+          "useCase": "Find specific user, lookup by name"
+        },
+        {
+          "title": "Example 3: Search Identities by Attribute",
+          "startLine": 78,
+          "endLine": 107,
+          "description": "Finds all identities matching a specific attribute value using compiled filters.",
+          "useCase": "Search by department, location, or custom attribute"
+        },
+        {
+          "title": "Example 4: Get Links (Accounts) for Identity",
+          "startLine": 117,
+          "endLine": 147,
+          "description": "Gets all account links associated with an identity.",
+          "useCase": "Audit accounts, trace identity to application accounts"
+        },
+        {
+          "title": "Example 5: Update Identity Attribute",
+          "startLine": 158,
+          "endLine": 182,
+          "description": "Updates a specific attribute on an identity and commits the transaction.",
+          "useCase": "Data fix, automated attribute update, synchronization"
+        },
+        {
+          "title": "Example 6: Check Identity Capabilities",
+          "startLine": 191,
+          "endLine": 230,
+          "description": "Checks if an identity has a specific capability like SystemAdministrator.",
+          "useCase": "Security check, privilege verification"
+        },
+        {
+          "title": "Example 7: Get Identity Bundles (Assigned Roles)",
+          "startLine": 238,
+          "endLine": 266,
+          "description": "Retrieves the list of roles assigned to an identity.",
+          "useCase": "Role audit, access review"
+        },
+        {
+          "title": "Example 8: Set Default Manager if Missing",
+          "startLine": 298,
+          "endLine": 344,
+          "description": "Checks if an identity has a manager; if not, assigns a default manager.",
+          "useCase": "Data cleanup, ensure hierarchy integrity, default assignment"
+        }
+      ]
+    }
+  ]
+}
