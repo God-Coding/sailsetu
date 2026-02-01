@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/components/ui/auth-context";
-import { useRouter } from "next/navigation";
+import { useSailPoint } from "@/components/ui/sailpoint-context";
 
 export function ConnectionForm() {
+    const router = useRouter();
+    const { login } = useSailPoint();
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<any>(null);
-    const { login } = useAuth();
-    const router = useRouter();
 
     const [formData, setFormData] = useState({
         url: "http://localhost:8080/identityiq",
@@ -32,12 +32,20 @@ export function ConnectionForm() {
             const data = await response.json();
             setResult(data);
 
+            // Store credentials and redirect on successful connection
             if (data.success) {
-                // Login and redirect
                 login(formData.url, formData.username, formData.password);
+
+                // Also save to sessionStorage for pages that read directly from there
+                sessionStorage.setItem('sp_auth', JSON.stringify({
+                    url: formData.url,
+                    username: formData.username,
+                    password: formData.password
+                }));
+
                 setTimeout(() => {
-                    router.push("/dashboard");
-                }, 1000);
+                    router.push('/dashboard');
+                }, 1500); // Short delay to show success message
             }
 
         } catch (error: any) {

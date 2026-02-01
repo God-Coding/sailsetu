@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuth } from "@/components/ui/auth-context";
+import { useFirebaseAuth } from "./ui/auth-context";
 import { useState } from "react";
 import { Hammer, LayoutDashboard, FileSpreadsheet, GitCompare, LogOut, Anchor, Terminal, ChevronDown, Info, Wrench, Share2, Flame, Bot, Paintbrush, ShieldAlert } from "lucide-react";
 
 export default function Header() {
     const pathname = usePathname();
-    const { isAuthenticated, logout, username } = useAuth();
+    const { user, signOut } = useFirebaseAuth();
     const [toolsOpen, setToolsOpen] = useState(false);
 
     // Don't show header on login page
-    if (pathname === "/") return null;
+    if (pathname === "/login") return null;
 
     const toolsItems = [
         { name: "AI Report Assistant", href: "/ai-reports", icon: Bot },
@@ -47,7 +47,7 @@ export default function Header() {
                     </Link>
 
                     {/* Navigation - only if logged in */}
-                    {isAuthenticated && (
+                    {user && (
                         <nav className="hidden md:flex items-center gap-6">
 
                             {/* Dashboard */}
@@ -107,16 +107,23 @@ export default function Header() {
                     )}
 
                     {/* User Profile / Logout */}
-                    {isAuthenticated && (
+                    {user && (
                         <div className="flex items-center gap-4">
-                            <div className="hidden sm:block">
-                                <Link href="/profile" className="flex flex-col items-end group">
-                                    <p className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">Signed in as</p>
-                                    <p className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors">{username || "Admin"}</p>
-                                </Link>
+                            <div className="hidden sm:flex items-center gap-3">
+                                {user.photoURL && (
+                                    <img
+                                        src={user.photoURL}
+                                        alt={user.displayName || user.email || 'User'}
+                                        className="w-8 h-8 rounded-full border-2 border-indigo-500/20"
+                                    />
+                                )}
+                                <div className="flex flex-col items-end">
+                                    <p className="text-xs text-slate-400">Signed in as</p>
+                                    <p className="text-sm font-bold text-white">{user.email}</p>
+                                </div>
                             </div>
                             <button
-                                onClick={logout}
+                                onClick={signOut}
                                 className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors border border-transparent hover:border-rose-500/20"
                                 title="Logout"
                             >

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/components/ui/auth-context";
+import { useAuth } from "@/components/ui/sailpoint-context";
 import { useRouter } from "next/navigation";
 import { UserSearch } from "@/components/user-search";
 import { ArrowRightLeft, ShieldAlert, ShieldCheck, Loader2 } from "lucide-react";
@@ -313,22 +313,35 @@ ${accountRequestsXML}
                 let requestId = "Unknown";
 
                 const workflowData = data.launchResult?.["urn:ietf:params:scim:schemas:sailpoint:1.0:LaunchedWorkflow"];
+                const result = data.launchResult;
 
-                // 1. Try direct access in workflow URN
+                // 1. Check for id field directly (task result id)
+                if (result?.id && !requestId.match(/^[a-z0-9]{32}$/i)) {
+                    requestId = result.id;
+                }
+
+                // 2. Try direct access in workflow URN
                 if (workflowData?.identityRequestId) {
                     requestId = workflowData.identityRequestId;
                 }
 
-                // 2. Fallback: Check attributes array
-                if (requestId === "Unknown" && data.launchResult?.attributes) {
-                    const idItem = data.launchResult.attributes.find((item: any) => item.key === "identityRequestId");
+                // 3. Fallback: Check attributes array
+                if ((requestId === "Unknown" || requestId === result?.id) && result?.attributes) {
+                    const idItem = result.attributes.find((item: any) => item.key === "identityRequestId");
                     if (idItem?.value) {
                         requestId = idItem.value;
+                    } else {
+                        // Check Plan
+                        const planAttr = result.attributes.find((a: any) => a.key === "plan");
+                        if (planAttr && planAttr.value) {
+                            const match = planAttr.value.match(/key="identityRequestId" value="([^"]+)"/);
+                            if (match && match[1]) requestId = match[1];
+                        }
                     }
                 }
 
-                // 3. Fallback: Check output array in workflow URN
-                if (requestId === "Unknown" && workflowData?.output) {
+                // 4. Fallback: Check output array in workflow URN
+                if ((requestId === "Unknown" || requestId === result?.id) && workflowData?.output) {
                     const idItem = workflowData.output.find((item: any) => item.key === "identityRequestId");
                     if (idItem?.value) {
                         requestId = idItem.value;

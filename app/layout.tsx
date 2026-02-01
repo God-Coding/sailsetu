@@ -18,9 +18,9 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/components/ui/auth-context";
+import { SailPointProvider } from "@/components/ui/sailpoint-context";
+import { RouteGuard } from "@/components/ui/route-guard";
 import Header from "@/components/Header";
-
-// ... existing code ...
 
 export default function RootLayout({
   children,
@@ -33,10 +33,15 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <Header />
-          {children}
+          <SailPointProvider>
+            <RouteGuard>
+              <Header />
+              {children}
+            </RouteGuard>
+          </SailPointProvider>
         </AuthProvider>
       </body>
     </html>
   );
 }
+

@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/certification-report/layout,_N_T_/certification-report/page,_N_T_/certification-report"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/certification-report/__PAGE__",
+    "/certification-report",
+    "/_index",
+    "/_head"
+  ]
+}

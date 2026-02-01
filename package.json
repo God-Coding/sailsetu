@@ -13,6 +13,7 @@
     "@types/dagre": "^0.7.53",
     "clsx": "^2.1.1",
     "dagre": "^0.8.5",
+    "firebase": "^12.8.0",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
     "react": "19.2.3",

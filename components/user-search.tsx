@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Search, Loader2, User } from "lucide-react";
-import { useAuth } from "@/components/ui/auth-context";
+import { useAuth } from "@/components/ui/sailpoint-context";
 import { cn } from "@/lib/utils";
 
 interface UserSearchProps {

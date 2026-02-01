@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@/components/ui/auth-context";
+import { useAuth } from "@/components/ui/sailpoint-context";
 import { useRouter } from "next/navigation";
 import { Terminal, Play, Save, Code, Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import Editor, { useMonaco } from "@monaco-editor/react";

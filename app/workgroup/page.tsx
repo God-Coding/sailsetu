@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@/components/ui/auth-context";
+import { useAuth } from "@/components/ui/sailpoint-context";
 import { useRouter } from "next/navigation";
 import { Users, UserPlus, Save, AlertCircle, CheckCircle, Loader2, FileSpreadsheet } from "lucide-react";
 

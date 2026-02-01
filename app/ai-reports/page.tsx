@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/components/ui/auth-context";
+import { useAuth } from "@/components/ui/sailpoint-context";
 import { Send, Bot, FileText, Loader2, Download, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function AIReportsPage() {

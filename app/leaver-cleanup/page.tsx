@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/components/ui/auth-context";
+import { useAuth } from "@/components/ui/sailpoint-context";
 import { useRouter } from "next/navigation";
 import { BarChart3, FileDown, Search, Filter, RefreshCw, Upload, FileText, CheckCircle, AlertCircle, Trash2, ArrowRight, ShieldCheck, Loader2, Users, UserX, Info } from "lucide-react";
 
@@ -125,19 +125,36 @@ export default function LeaverCleanupPage() {
                 if (data.success) {
                     successCount += items.length;
 
-                    // Extract Request ID
+                    // Extract Request ID from various possible locations in the response
                     let reqId = "N/A";
-                    if (data.launchResult && data.launchResult.attributes) {
-                        const attrs = data.launchResult.attributes;
-                        const idAttr = attrs.find((a: any) => a.key === "identityRequestId");
-                        if (idAttr) {
-                            reqId = idAttr.value;
-                        } else {
-                            const planAttr = attrs.find((a: any) => a.key === "plan");
-                            if (planAttr && planAttr.value) {
-                                const match = planAttr.value.match(/key="identityRequestId" value="([^"]+)"/);
-                                if (match && match[1]) reqId = match[1];
+                    const result = data.launchResult;
+
+                    if (result) {
+                        // Check for id field directly (task result id)
+                        if (result.id && !reqId.match(/^[a-z0-9]{32}$/i)) {
+                            reqId = result.id;
+                        }
+
+                        // Check for identityRequestId in attributes
+                        if (result.attributes) {
+                            const attrs = result.attributes;
+                            const idAttr = attrs.find((a: any) => a.key === "identityRequestId");
+                            if (idAttr && idAttr.value) {
+                                reqId = idAttr.value;
+                            } else {
+                                // Try to extract from plan attribute
+                                const planAttr = attrs.find((a: any) => a.key === "plan");
+                                if (planAttr && planAttr.value) {
+                                    const match = planAttr.value.match(/key="identityRequestId" value="([^"]+)"/);
+                                    if (match && match[1]) reqId = match[1];
+                                }
                             }
+                        }
+
+                        // Check nested workflow schema
+                        const workflowSchema = result["urn:ietf:params:scim:schemas:sailpoint:1.0:LaunchedWorkflow"];
+                        if (workflowSchema && workflowSchema.identityRequestId) {
+                            reqId = workflowSchema.identityRequestId;
                         }
                     }
 

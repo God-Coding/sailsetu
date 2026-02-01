@@ -15,7 +15,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import dagre from 'dagre';
 import { Search, Share2, User, Shield, Box, Layers, Key, Download } from 'lucide-react';
-import { useAuth } from '@/components/ui/auth-context';
+import { useAuth } from '@/components/ui/sailpoint-context';
 import { useRouter } from 'next/navigation';
 
 // --- Dagre Layout Helper ---

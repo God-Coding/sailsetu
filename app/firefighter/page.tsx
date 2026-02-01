@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/components/ui/auth-context';
+import { useAuth } from '@/components/ui/sailpoint-context';
 import { AlertTriangle, Clock, ShieldAlert, BadgeCheck, Flame } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 

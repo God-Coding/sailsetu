@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/components/ui/auth-context";
+import { useFirebaseAuth } from "@/components/ui/auth-context";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, User, Mail, Briefcase, UserCheck, XCircle, GitCompare, GitBranch, Plus, FileText, Hammer, Terminal, Share2, Wrench, Flame, ClipboardCheck, Bot, ShieldAlert, Copy } from "lucide-react";
@@ -43,17 +43,9 @@ import { Loader2, User, Mail, Briefcase, UserCheck, XCircle, GitCompare, GitBran
 </Link>
 
 export default function Dashboard() {
-    const { url, isAuthenticated, isLoading } = useAuth();
-    const router = useRouter();
+    const { user, loading } = useFirebaseAuth();
 
-    // Protected Route Check
-    useEffect(() => {
-        if (!isLoading && !isAuthenticated) {
-            router.push("/");
-        }
-    }, [isAuthenticated, isLoading, router]);
-
-    if (isLoading) {
+    if (loading) {
         return (
             <main className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -61,7 +53,8 @@ export default function Dashboard() {
         );
     }
 
-    if (!isAuthenticated) return null;
+    // RouteGuard handles auth redirect, so we just check if user exists
+    if (!user) return null;
 
     return (
         <main className="min-h-screen bg-slate-950 p-8 text-slate-100">
@@ -71,7 +64,7 @@ export default function Dashboard() {
                         <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
                         <p className="text-slate-400 mt-1">Manage your identity access and workflows</p>
                     </div>
-                    <div className="text-sm text-slate-500 font-mono px-3 py-1 bg-slate-900 rounded-full border border-slate-800">{url}</div>
+                    <div className="text-sm text-slate-500 font-mono px-3 py-1 bg-slate-900 rounded-full border border-slate-800">{user?.email}</div>
                 </div>
 
                 <div className="space-y-8">

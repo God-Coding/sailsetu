@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@/components/ui/auth-context";
+import { useAuth } from "@/components/ui/sailpoint-context";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Upload, FileText, Play, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 
@@ -197,16 +197,32 @@ export default function BatchRequestPage() {
                     successCount += items.length;
 
                     let reqId = "N/A";
-                    if (data.launchResult && data.launchResult.attributes) {
-                        const attrs = data.launchResult.attributes;
-                        const idAttr = attrs.find((a: any) => a.key === "identityRequestId");
-                        if (idAttr) {
-                            reqId = idAttr.value;
-                        } else {
-                            const planAttr = attrs.find((a: any) => a.key === "plan");
-                            if (planAttr && planAttr.value) {
-                                const match = planAttr.value.match(/key="identityRequestId" value="([^"]+)"/);
-                                if (match && match[1]) reqId = match[1];
+                    const result = data.launchResult;
+
+                    if (result) {
+                        // Check for id field directly (task result id)
+                        if (result.id && !reqId.match(/^[a-z0-9]{32}$/i)) {
+                            reqId = result.id;
+                        }
+
+                        // Check workflow schema for request ID
+                        const workflowSchema = result["urn:ietf:params:scim:schemas:sailpoint:1.0:LaunchedWorkflow"];
+                        if (workflowSchema && workflowSchema.identityRequestId) {
+                            reqId = workflowSchema.identityRequestId;
+                        }
+
+                        // Check attributes
+                        if (result.attributes) {
+                            const attrs = result.attributes;
+                            const idAttr = attrs.find((a: any) => a.key === "identityRequestId");
+                            if (idAttr) {
+                                reqId = idAttr.value;
+                            } else {
+                                const planAttr = attrs.find((a: any) => a.key === "plan");
+                                if (planAttr && planAttr.value) {
+                                    const match = planAttr.value.match(/key="identityRequestId" value="([^"]+)"/);
+                                    if (match && match[1]) reqId = match[1];
+                                }
                             }
                         }
                     }

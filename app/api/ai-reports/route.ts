@@ -8,37 +8,98 @@ import os from 'os';
 // On Windows Tomcat, this usually resolves to %Temp% or a specific temp folder.
 // Since Java and Node run on same localized environment here (c:\Program Files...), we check standard locations.
 const REGISTRY_FILENAME = 'report_registry.json';
-// Hardcoded path to ensure alignment with Backend (Tomcat)
-const WIN_TEMP_PATH = 'c:/Program Files/Apache Software Foundation/Tomcat 9.0/temp/' + REGISTRY_FILENAME;
-// Note: We bypass os.tmpdir to match the specific location Java is writing to.
+
+// Define possible paths where the registry might be written
+const LOCAL_CACHE_PATH = path.join(os.tmpdir(), REGISTRY_FILENAME);
+const CANDIDATE_PATHS = [
+    LOCAL_CACHE_PATH,
+    'c:/Program Files/Apache Software Foundation/Tomcat 9.0/temp/' + REGISTRY_FILENAME,
+    path.join('C:/Temp', REGISTRY_FILENAME)
+];
 
 async function getRegistry(config: any): Promise<any[]> {
     try {
-        // Try OS temp first (where Java System.io.tmpdir usually points)
-        // Also check Tomcat temp if predictable?
-        // Let's assume standard behavior first.
+        let foundPath = null;
 
-        // We might need to find where exactly Java wrote it. 
-        // For this environment, we'll try to read from the path we suspect.
-        // If file doesn't exist, we trigger the workflow to create it.
-
-        // Strategy: Check if file exists.
-        // In local dev, we can just rely on the file potentially being there or triggering generation.
-
-        // If file missing:
-        try {
-            await fs.access(WIN_TEMP_PATH);
-        } catch {
-            // File missing. Trigger generation.
-            console.log("Registry missing. Triggering generation...");
-            const launch = await launchWorkflow('GetAllReportDefinitions', {}, config);
-            // We'd ideally wait here, but for now we'll fail fast or return empty to user saying "Initializing..."
-            // Or we simple block for a few seconds.
-            await new Promise(r => setTimeout(r, 4000));
+        // 1. Check existing paths (prioritize local cache)
+        for (const p of CANDIDATE_PATHS) {
+            try {
+                await fs.access(p);
+                const stat = await fs.stat(p);
+                // Ensure file is not empty and reasonably fresh (optional, but good practice)
+                if (stat.size > 0) {
+                    foundPath = p;
+                    break;
+                }
+            } catch { } // Ignore missing
         }
 
-        const data = await fs.readFile(WIN_TEMP_PATH, 'utf-8');
-        return JSON.parse(data);
+        // 2. If not found, trigger generation
+        if (!foundPath) {
+            console.log("Registry missing in candidate paths. Triggering generation...");
+            const launch = await launchWorkflow('GetAllReportDefinitions', {}, config);
+
+            // CHECK 2.1: Try to get data directly from workflow output (Fastest/Safest)
+            if (launch.success && launch.launchResult) {
+                let reportListJson = null;
+                const result = launch.launchResult;
+                const workflowData = result["urn:ietf:params:scim:schemas:sailpoint:1.0:LaunchedWorkflow"];
+
+                // Helper to find key in list of {key, value}
+                const findKey = (list: any[], key: string) => list?.find((i: any) => i.key === key)?.value;
+
+                // Check in workflow output
+                if (workflowData?.output) {
+                    reportListJson = findKey(workflowData.output, "reportList");
+                }
+
+                // Check in attributes (TaskResult)
+                if (!reportListJson && result.attributes) {
+                    reportListJson = findKey(result.attributes, "reportList");
+                }
+
+                if (reportListJson) {
+                    console.log("Successfully retrieved registry from Workflow Output!");
+                    // Parse and Cache locally
+                    try {
+                        // It might be a stringified JSON or already an object depending on how SCIM returns it
+                        const registryData = typeof reportListJson === 'string' ? JSON.parse(reportListJson) : reportListJson;
+
+                        // Write to local cache for next time
+                        await fs.writeFile(LOCAL_CACHE_PATH, JSON.stringify(registryData, null, 2));
+                        return registryData;
+                    } catch (e) {
+                        console.error("Error parsing/caching workflow output:", e);
+                    }
+                }
+            }
+
+            // CHECK 2.2: Fallback to polling (if workflow didn't return output but wrote to file)
+            const MAX_RETRIES = 5;
+            for (let i = 0; i < MAX_RETRIES; i++) {
+                console.log(`Polling for registry file (Attempt ${i + 1}/${MAX_RETRIES})...`);
+                await new Promise(r => setTimeout(r, 2000)); // Wait 2s
+
+                for (const p of CANDIDATE_PATHS) {
+                    try {
+                        await fs.access(p);
+                        foundPath = p;
+                        console.log(`Found registry at: ${foundPath}`);
+                        break;
+                    } catch { }
+                }
+
+                if (foundPath) break;
+            }
+        }
+
+        if (foundPath) {
+            const data = await fs.readFile(foundPath, 'utf-8');
+            return JSON.parse(data);
+        } else {
+            console.warn("Registry file could not be found after generation.");
+            return []; // Return empty to signal UI to retry or show initializing
+        }
     } catch (e) {
         console.error("Error reading registry:", e);
         return [];
