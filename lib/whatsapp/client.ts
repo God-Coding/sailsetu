@@ -54,7 +54,10 @@ export class WhatsAppService extends EventEmitter {
                     '--disable-accelerated-2d-canvas',
                     '--no-first-run',
                     '--no-zygote',
-                    '--disable-gpu'
+                    '--disable-gpu',
+                    '--disable-software-rasterizer',
+                    '--disable-features=site-per-process',
+                    '--disable-extensions'
                 ]
             }
         });
@@ -188,11 +191,34 @@ export class WhatsAppService extends EventEmitter {
     public async destroy() {
         if (this.client) {
             console.log('[WhatsApp] Destroying client...');
-            await this.client.destroy();
+            try {
+                await this.client.destroy();
+            } catch (e) {
+                console.error('[WhatsApp] Destroy error:', e);
+            }
             this.client = null;
+            this.status = 'disconnected';
+            this.qrCode = null;
         }
     }
 
+    public async logout() {
+        if (this.client && this.status === 'ready') {
+            console.log('[WhatsApp] Logging out...');
+            try {
+                await this.client.logout();
+                this.status = 'disconnected';
+                this.qrCode = null;
+                // Re-initialize to show new QR
+                this.initializeClient();
+            } catch (e) {
+                console.error('[WhatsApp] Logout error:', e);
+                // Force destroy if logout fails
+                await this.destroy();
+                this.initializeClient();
+            }
+        }
+    }
     public setSailPointConfig(config: any) {
         this.sailpointConfig = config;
         global.sailpointConfigCache = config; // Cache it
@@ -353,6 +379,7 @@ export class WhatsAppService extends EventEmitter {
         // Context Wrapper
         const ctx: BotContext = {
             client: this.client,
+            channel: 'whatsapp',
             msg,
             session,
             config: this.sailpointConfig,
@@ -365,12 +392,18 @@ export class WhatsAppService extends EventEmitter {
                     await msg.reply(txt);
                 } catch (e: any) {
                     console.warn('[WhatsApp] Reply failed (Detached Frame?), falling back to sendMessage:', e.message);
-                    // Fallback to direct message if frame is detached
                     await this.client?.sendMessage(msg.from, txt);
                 }
             },
+            sendPoll: async (question, options, allowMultiple = false) => {
+                // FORCE TEXT MODE for reliability during debugging
+                console.log('[WhatsApp Debug] sendPoll Fallback Triggered (Forced)');
+                let text = `${question}\n\n`;
+                options.forEach((opt, i) => text += `${i + 1}️⃣ ${opt}\n`);
+                await msg.reply(text);
+            },
             resetSession: () => {
-                // Instead of deleting, we just reset to MENU and keep active? 
+                // Instead of deleting, we just reset to MENU and keep active?
                 // Or maybe purely reset state.
                 session!.step = 'MENU';
                 session!.data = {};

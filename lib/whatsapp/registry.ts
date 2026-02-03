@@ -10,11 +10,13 @@ export interface UserSession {
 }
 
 export interface BotContext {
-    client: any; // WhatsApp Client
+    client: any; // WhatsApp or Telegram Client
+    channel: 'whatsapp' | 'telegram';
     msg: any;    // Incoming Message
     session: UserSession;
     config: any; // SailPoint Config
-    reply: (content: any) => Promise<void>;
+    reply: (content: string) => Promise<void>;
+    sendPoll: (question: string, options: string[], allowMultiple?: boolean) => Promise<void>;
     resetSession: () => void;
 }
 

@@ -4,8 +4,8 @@ import { launchWorkflow } from '@/lib/sailpoint/workflow';
 
 export class VerifyIdentityFeature implements Feature {
     id = "verify-identity";
-    name = "Link WhatsApp Account";
-    description = "Connect your WhatsApp number to your SailPoint identity.";
+    name = "Link Bot Account";
+    description = "Connect your account to your SailPoint identity.";
 
     async onSelect(ctx: BotContext) {
         console.log('[Verify] Feature Selected. Initializing session...');
@@ -14,7 +14,7 @@ export class VerifyIdentityFeature implements Feature {
 
         await ctx.reply(
             `BOT: 🔐 *Identity Verification*\n\n` +
-            `To link your WhatsApp number to SailPoint, please enter your *SailPoint username*.\n\n` +
+            `To link your *${ctx.channel}* account to SailPoint, please enter your *SailPoint username*.\n\n` +
             `Type *'cancel'* to abort.`
         );
         console.log('[Verify] Start message sent.');
@@ -66,7 +66,13 @@ export class VerifyIdentityFeature implements Feature {
         if (step === 'ASK_PASSWORD') {
             const password = text.trim();
             const username = ctx.session.data.pendingUsername;
-            const phoneNumber = ctx.msg.from.replace('@c.us', '').replace('@s.whatsapp.net', '');
+
+            // Extract ID based on channel
+            const phoneNumber = ctx.channel === 'whatsapp'
+                ? ctx.msg.from.replace('@c.us', '').replace('@s.whatsapp.net', '')
+                : ctx.msg.chat.id.toString();
+
+            const channelIdx = ctx.channel === 'whatsapp' ? '0' : '1';
 
             await ctx.reply(`BOT: ⏳ Verifying and linking account...`);
 
@@ -75,7 +81,8 @@ export class VerifyIdentityFeature implements Feature {
                 const result = await launchWorkflow('RegisterPhoneMapping', {
                     phoneNumber,
                     identityName: username,
-                    password: password
+                    password: password,
+                    channel: channelIdx
                 }, ctx.config);
 
                 if (result.success) {
@@ -97,8 +104,8 @@ export class VerifyIdentityFeature implements Feature {
 
                         await ctx.reply(
                             `BOT: ✅ *Success!*\n\n` +
-                            `Your WhatsApp is now linked to *${username}*.\n` +
-                            `Phone attribute updated in IdentityIQ.\n\n` +
+                            `Your *${ctx.channel}* is now linked to *${username}*.\n` +
+                            `Identity attribute updated in IdentityIQ.\n\n` +
                             `Please type *!menu* to see your available tools (refreshing roles...).`
                         );
                         ctx.resetSession(); // Done

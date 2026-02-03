@@ -1,7 +1,5 @@
-
 import { BotContext, Feature } from '../registry';
 import { launchWorkflow } from '@/lib/sailpoint/workflow';
-import { Buttons, List, Poll } from 'whatsapp-web.js';
 
 export class AccessReviewFeature implements Feature {
     id = "access-reviews";
@@ -96,24 +94,13 @@ export class AccessReviewFeature implements Feature {
                     ctx.session.data.reviews = reviews;
                     ctx.session.data.internalStep = 'SELECT_REVIEW';
 
-                    // Use Poll if <= 10 options
+                    // Standard UI using sendPoll
                     if (reviews.length <= 10) {
-                        try {
-                            // Prefix with Index "1. Name..." so parseInt works in handler
-                            const options = reviews.map((r: any, i: number) =>
-                                `${i + 1}. ${(r.target || r.name).substring(0, 20)}`
-                            );
-
-                            const pollMsg = new Poll(
-                                "📋 *Pending Reviews*\nSelect a review to process:",
-                                options,
-                                { allowMultipleAnswers: false } as any
-                            );
-                            await ctx.reply(pollMsg);
-                            return;
-                        } catch (e) {
-                            console.error("Poll error:", e);
-                        }
+                        const options = reviews.map((r: any, i: number) =>
+                            `${(r.target || r.name).substring(0, 20)}`
+                        );
+                        await ctx.sendPoll("📋 *Pending Reviews*\nSelect a review to process:", options);
+                        return;
                     }
 
                     // Fallback to text
@@ -161,6 +148,7 @@ export class AccessReviewFeature implements Feature {
         ctx.session.data.selectedReviewId = review.id;
         ctx.session.data.selectedReviewName = review.target || review.name;
 
+        await ctx.reply(`BOT: ✅ Selected Review: *${ctx.session.data.selectedReviewName}*`);
         await this.listReviewItems(ctx, review.id);
     }
 
@@ -187,27 +175,16 @@ export class AccessReviewFeature implements Feature {
                 // Count open items
                 const openItems = items.filter((i: any) => i.decision !== 'Approved' && i.decision !== 'Remediated');
 
-                // Use Poll if items small enough
-                if (items.length <= 10) {
-                    try {
-                        const options = items.map((item: any, i: number) => {
-                            const status = item.decision === 'Approved' ? '✅' : (item.decision === 'Remediated' ? '❌' : '⏳');
-                            const label = `${status} ${item.attribute}: ${item.value}`;
-                            // Prefix with Index "1. ✅ Item..." so parseInt works
-                            return `${i + 1}. ${label.substring(0, 20)}`;
-                        });
+                // Standard UI using sendPoll
+                if (items.length <= 9) { // 9 + 1 for sign off
+                    const options = items.map((item: any, i: number) => {
+                        const status = item.decision === 'Approved' ? '✅' : (item.decision === 'Remediated' ? '❌' : '⏳');
+                        return `${status} ${item.attribute}: ${item.value}`.substring(0, 20);
+                    });
+                    options.push("✍️ Sign Off Certification");
 
-                        // Add Sign Off
-                        options.push("✍️ Sign Off Certification");
-
-                        const pollMsg = new Poll(
-                            `📝 *Review: ${ctx.session.data.selectedReviewName}*\nSelect an item to decide, or Sign Off:`,
-                            options,
-                            { allowMultipleAnswers: false } as any
-                        );
-                        await ctx.reply(pollMsg);
-                        return;
-                    } catch (e) { console.error("Poll error items:", e); }
+                    await ctx.sendPoll(`📝 *Review: ${ctx.session.data.selectedReviewName}*\nSelect an item:`, options);
+                    return;
                 }
 
                 // Fallback Text combined
@@ -217,7 +194,8 @@ export class AccessReviewFeature implements Feature {
                     const statusIcon = item.decision === 'Approved' ? '✅' : (item.decision === 'Remediated' ? '❌' : '⏳');
                     msg += `${i + 1}. ${statusIcon} *${item.attribute}*: ${item.value} (${item.identity})\n`;
                 });
-                msg += "\nReply with *Item #* to decide.\nReply *'S'* to Sign Off.\nReply *'done'* to exit.";
+                msg += `\n${items.length + 1}. ✍️ Sign Off Certification\n`; // Add Sign Off as a numbered option
+                msg += "\nReply with *Item #* to decide.\nReply *'done'* to exit.";
                 await ctx.reply(msg);
             } else {
                 await ctx.reply("BOT: ❌ Failed to fetch items.");
@@ -229,9 +207,18 @@ export class AccessReviewFeature implements Feature {
 
     async handleSelectItem(ctx: BotContext, text: string) {
         const input = (ctx.msg && ctx.msg.selectedRowId) ? ctx.msg.selectedRowId : text;
+        const items = ctx.session.data.items || [];
+        const idx = parseInt(input) - 1;
 
-        // Check for Sign Off
-        if (input === 'SIGNOFF' || input === 'Sign Off Certification' || input === '✍️ Sign Off Certification' || input.toUpperCase() === 'S') {
+        // Check for Sign Off (String match OR last numeric option)
+        const isSignOffInput = input === 'SIGNOFF' ||
+            input === 'Sign Off Certification' ||
+            input === '✍️ Sign Off Certification' ||
+            input.toUpperCase() === 'S';
+
+        const isSignOffIdx = !isNaN(idx) && idx === items.length; // Sign Off is the (items.length + 1)th option, so its index is items.length
+
+        if (isSignOffInput || isSignOffIdx) {
             await ctx.reply("BOT: ✍️ Signing Off Certification...");
             try {
                 const launch = await launchWorkflow('MakeReviewDecision', {
@@ -252,11 +239,8 @@ export class AccessReviewFeature implements Feature {
             return;
         }
 
-        const idx = parseInt(input) - 1;
-        const items = ctx.session.data.items;
-
         if (isNaN(idx) || idx < 0 || idx >= items.length) {
-            await ctx.reply("BOT: ⚠️ Invalid item number.");
+            await ctx.reply("BOT: ⚠️ Invalid item number. Please reply with a number from the list.");
             return;
         }
 
@@ -264,22 +248,10 @@ export class AccessReviewFeature implements Feature {
         ctx.session.data.selectedItem = item;
         ctx.session.data.internalStep = 'DECIDE_ACTION';
 
-        try {
-            const pollMsg = new Poll(
-                `Decision for: *${item.attribute}: ${item.value}*\nIdentity: ${item.identity}`,
-                ['Approve', 'Revoke', 'Cancel'],
-                { allowMultipleAnswers: false } as any
-            );
-            await ctx.reply(pollMsg);
-        } catch (e) {
-            await ctx.reply(
-                `BOT: 🤔 Decide for *\nReference Check: ${item.attribute}: ${item.value}*\n\n` +
-                `Reply:\n` +
-                `*A* - Approve\n` +
-                `*R* - Revoke\n` +
-                `*C* - Cancel`
-            );
-        }
+        await ctx.sendPoll(
+            `Decision for: *${item.attribute}: ${item.value}*\nIdentity: ${item.identity}`,
+            ['Approve', 'Revoke', 'Cancel']
+        );
     }
 
     async handleDecision(ctx: BotContext, text: string) {

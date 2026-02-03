@@ -11,6 +11,9 @@
     <Variable input="true" name="password">
       <Description>SailPoint Password for verification</Description>
     </Variable>
+    <Variable input="true" name="channel">
+      <Description>0 for WhatsApp, 1 for Telegram</Description>
+    </Variable>
     <Variable output="true" name="success">
       <Description>true if mapping was successful</Description>
     </Variable>
@@ -68,20 +71,45 @@
                 return;
             }
 
-            // 2. Normalize Phone
-            String normalizedPhone = phoneNumber.replaceAll("[^0-9]", "");
+            int channelIdx = 0; // Default WA
+            try {
+                if (channel != null) channelIdx = Integer.parseInt(channel);
+            } catch (Exception e) {}
 
-            // 3. Set PHONE Attribute
-            identity.setAttribute("phone", normalizedPhone);
-            if (identity == null) {
-                workflow.put("success", "false");
-                 workflow.put("message", "Identity not found: " + identityName);
-                 return;
+            // 3. Update PHONE Attribute (WA,TG Format)
+            String currentVal = identity.getStringAttribute("phone");
+            System.out.println("[SailSetu] Registering " + (channelIdx == 0 ? "WhatsApp" : "Telegram") + " ID: " + phoneNumber + " for " + identityName);
+            System.out.println("[SailSetu] Current phone attribute: " + currentVal);
+
+            String waPart = "";
+            String tgPart = "";
+
+            if (currentVal != null && currentVal.length() > 0) {
+                if (currentVal.contains(",")) {
+                    String[] existing = currentVal.split(",");
+                    if (existing.length > 0) waPart = existing[0].trim();
+                    if (existing.length > 1) tgPart = existing[1].trim();
+                } else {
+                    // Single value exists. 
+                    // If we are registering Telegram, assume existing is WhatsApp.
+                    // If we are registering WhatsApp, assume existing is WhatsApp (to be replaced).
+                    if (channelIdx == 1) {
+                         waPart = currentVal.trim();
+                    } else {
+                         waPart = currentVal.trim(); // This will be replaced below anyway
+                    }
+                }
             }
 
-            // 3. Set PHONE Attribute
-            identity.setAttribute("phone", normalizedPhone);
-    
+            if (channelIdx == 0) {
+                waPart = phoneNumber;
+            } else {
+                tgPart = phoneNumber;
+            }
+
+            String newVal = waPart + "," + tgPart;
+            System.out.println("[SailSetu] New phone attribute value: " + newVal);
+            identity.setAttribute("phone", newVal);
             
             context.saveObject(identity);
             context.commitTransaction();
@@ -94,12 +122,12 @@
                 custom.setName(customName);
                  custom.setAttributes(new Attributes());
             }
-            custom.put(normalizedPhone, identityName);
+            custom.put(phoneNumber, identityName);
             context.saveObject(custom);
             context.commitTransaction();
             
             workflow.put("success", "true");
-            workflow.put("message", "Identity Verified! Phone " + normalizedPhone + " linked to " + identity.getDisplayName());
+            workflow.put("message", "Identity Verified! ID " + phoneNumber + " linked to " + identity.getDisplayName());
           ]]>
         </Source>
       </Script>

@@ -6,7 +6,7 @@ import { Smartphone, CheckCircle, RefreshCw, AlertCircle, Shield } from "lucide-
 import Image from "next/image";
 
 export default function WhatsAppPage() {
-    const { url, username, password, isAuthenticated } = useAuth();
+    const { url, username, password, telegramToken, isAuthenticated } = useAuth();
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [status, setStatus] = useState<string>("disconnected");
     const [loading, setLoading] = useState(true);
@@ -19,11 +19,12 @@ export default function WhatsAppPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'update_config',
-                    config: { url, username, password }
+                    config: { url, username, password },
+                    telegramToken: telegramToken
                 })
             }).catch(console.error);
         }
-    }, [isAuthenticated, url, username, password]);
+    }, [isAuthenticated, url, username, password, telegramToken]);
 
     // Connect to SSE stream
     useEffect(() => {
@@ -72,11 +73,27 @@ export default function WhatsAppPage() {
                             <div className="text-center space-y-4">
                                 <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
                                 <h3 className="text-xl font-semibold text-green-600">Connected!</h3>
-                                <p className="text-gray-500">
+                                <p className="text-gray-500 text-sm">
                                     SailSetu is now linked to your WhatsApp.
                                     <br />
                                     Try sending <strong>!tools</strong> to the bot.
                                 </p>
+
+                                <button
+                                    onClick={async () => {
+                                        if (confirm("Are you sure you want to disconnect? You will need to rescan the QR code.")) {
+                                            setLoading(true);
+                                            await fetch('/api/whatsapp', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ action: 'logout' })
+                                            });
+                                        }
+                                    }}
+                                    className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-500 bg-red-50 rounded-md border border-red-200"
+                                >
+                                    Logout / Rescan QR
+                                </button>
                             </div>
                         )}
 

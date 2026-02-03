@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import waInstance from '@/lib/whatsapp/client';
+import tgInstance from '@/lib/telegram/service';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,7 +67,14 @@ export async function POST(req: Request) {
 
         if (action === 'update_config') {
             waInstance.setSailPointConfig(config);
+            // telegramToken is passed inside config or alongside it in the Dashboard POST
+            tgInstance.setConfig(config, body.telegramToken);
             return NextResponse.json({ success: true, message: "Configuration updated" });
+        }
+
+        if (action === 'logout') {
+            await waInstance.logout();
+            return NextResponse.json({ success: true, message: "Logging out..." });
         }
 
         return NextResponse.json({ message: "Invalid action" }, { status: 400 });

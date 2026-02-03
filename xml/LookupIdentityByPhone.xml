@@ -40,29 +40,32 @@
             capabilities = "[]";
 
             if (phoneNumber != null && phoneNumber.length() > 0) {
-                // Normalize phone number (strip + and spaces)
-                String normalizedPhone = phoneNumber.replaceAll("[^0-9]", "");
-                
                 Identity identity = null;
 
-                // Search by 'phone' attribute (Auto-Discovery)
-                // Search by 'phone' attribute (Optimized - Attribute IS Searchable)
+                // Search by 'phone' attribute (Supports "WA_ID,TG_ID" format)
                 try {
+                    System.out.println("[SailSetu] Searching for ID: " + phoneNumber);
                     QueryOptions qo = new QueryOptions();
-                    List filters = new ArrayList();
                     
-                    // Exact match (digits only)
-                    filters.add(Filter.eq("phone", normalizedPhone));
-                    
-                    // Match with + prefix
-                    filters.add(Filter.eq("phone", "+" + normalizedPhone));
-                    
-                    qo.addFilter(Filter.or(filters));
-                    qo.setResultLimit(1);
+                    // Use LIKE to find candidates, then verify segments in script for accuracy
+                    qo.addFilter(Filter.like("phone", phoneNumber, Filter.MatchMode.ANYWHERE));
                     
                     Iterator it = context.search(Identity.class, qo);
-                    if (it.hasNext()) {
-                        identity = (Identity) it.next();
+                    while (it.hasNext()) {
+                        Identity candidate = (Identity) it.next();
+                        String val = candidate.getStringAttribute("phone");
+                        System.out.println("[SailSetu] Candidate " + candidate.getName() + " has phone: " + val);
+                        if (val != null) {
+                            String[] segments = val.split(",");
+                            for (String seg : segments) {
+                                if (seg.trim().equals(phoneNumber)) {
+                                    identity = candidate;
+                                    System.out.println("[SailSetu] Match found: " + identity.getName());
+                                    break;
+                                }
+                            }
+                        }
+                        if (identity != null) break;
                     }
                     Util.flushIterator(it);
                 } catch (Exception e) {
