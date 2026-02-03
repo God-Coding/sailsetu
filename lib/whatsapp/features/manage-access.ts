@@ -6,7 +6,7 @@ export class ManageAccessFeature implements Feature {
     id = "manage-access";
     name = "Manage User Access";
     description = "Request or Revoke access for an identity.";
-    requiredCapability = "*";
+    requiredCapability = "sailsetu-user";
 
     async onSelect(ctx: BotContext) {
         ctx.session.data = {}; // Clear data

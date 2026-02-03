@@ -43,49 +43,30 @@
                 // Normalize phone number (strip + and spaces)
                 String normalizedPhone = phoneNumber.replaceAll("[^0-9]", "");
                 
-                String customName = "SailSetuPhoneMappings";
-                Custom custom = context.getObjectByName(Custom.class, customName);
-                String mappedIdentityName = null;
-                
-                if (custom != null) {
-                    mappedIdentityName = (String) custom.get(normalizedPhone);
-                }
-
                 Identity identity = null;
 
-                // 1. Try Custom Mapping
-                if (mappedIdentityName != null) {
-                    identity = context.getObjectByName(Identity.class, mappedIdentityName);
-                }
-
-                // 2. Fallback: Search by 'phone' attribute (Auto-Discovery)
-                if (identity == null) {
-                     try {
-                        QueryOptions qo = new QueryOptions();
-                        List filters = new ArrayList();
-                        
-                        // Exact match (normalized)
-                        filters.add(Filter.eq("attributes.phone", normalizedPhone));
-                        
-                        // Match with + prefix (common in SailPoint)
-                        filters.add(Filter.eq("attributes.phone", "+" + normalizedPhone));
-                        
-                        // Match with spaces (e.g. +91 630...) - Try a few common formats
-                        // Note: Filter.like is expensive, so we try explicit formats if possible.
-                        // For now, let's rely on exact or simple variations. 
-                        
-                        qo.addFilter(Filter.or(filters));
-                        qo.setResultLimit(1);
-                        
-                        Iterator it = context.search(Identity.class, qo);
-                        if (it.hasNext()) {
-                            identity = (Identity) it.next();
-                        }
-                        Util.flushIterator(it);
-                     } catch (Exception e) {
-                        // Log error but continue (fail gracefully)
-                        System.out.println("Error searching by attribute: " + e);
-                     }
+                // Search by 'phone' attribute (Auto-Discovery)
+                // Search by 'phone' attribute (Optimized - Attribute IS Searchable)
+                try {
+                    QueryOptions qo = new QueryOptions();
+                    List filters = new ArrayList();
+                    
+                    // Exact match (digits only)
+                    filters.add(Filter.eq("phone", normalizedPhone));
+                    
+                    // Match with + prefix
+                    filters.add(Filter.eq("phone", "+" + normalizedPhone));
+                    
+                    qo.addFilter(Filter.or(filters));
+                    qo.setResultLimit(1);
+                    
+                    Iterator it = context.search(Identity.class, qo);
+                    if (it.hasNext()) {
+                        identity = (Identity) it.next();
+                    }
+                    Util.flushIterator(it);
+                } catch (Exception e) {
+                    System.out.println("Error searching by attribute: " + e);
                 }
 
                 // 3. Process Identity if found
@@ -95,37 +76,45 @@
                     workflow.put("displayName", identity.getDisplayName());
                     workflow.put("email", identity.getEmail());
                     
-                    // Build capabilities list (SAFE VERSION)
+                    // Build capabilities list (Direct Role Mapping)
                     List caps = new ArrayList();
                     
-                    // Check Reviewer
-                    try {
-                        QueryOptions wiQo = new QueryOptions();
-                        wiQo.addFilter(Filter.eq("owner", identity));
-                        wiQo.addFilter(Filter.eq("type", WorkItem.Type.Certification));
-                        wiQo.setResultLimit(1);
-                        if (context.countObjects(WorkItem.class, wiQo) > 0) {
-                            caps.add("Reviewer");
-                        }
-                    } catch (Exception e) {}
+                    // Aggressively find all roles
+                    Set allRoles = new HashSet();
                     
-                    // Check Admin (Safe)
-                    try {
-                        if (identity.getCapabilityManager() != null) {
-                            List adminCaps = identity.getCapabilityManager().getEffectiveCapabilities();
-                                if (adminCaps != null) {
-                                for (Object cap : adminCaps) {
-                                    Capability c = (Capability) cap;
-                                    if (c != null && (c.getName().contains("Admin") || c.getName().equals("SystemAdministrator"))) {
-                                        caps.add("Admin");
-                                        break;
-                                    }
-                                }
-                            }
+                    // 1. Business Roles (Directly Assigned)
+                    List assigned = identity.getAssignedRoles();
+                    if (assigned != null) {
+                        for (Object r : assigned) {
+                            if (r != null) allRoles.add(((Bundle)r).getName());
                         }
-                    } catch (Exception e) {}
+                    }
                     
-                    caps.add("User");
+                    // 2. IT/Effective Roles
+                    List bundles = identity.getBundles();
+                    if (bundles != null) {
+                        for (Object r : bundles) {
+                            if (r != null) allRoles.add(((Bundle)r).getName());
+                        }
+                    }
+                    
+                    // 3. Detected Roles
+                    List detected = identity.getDetectedRoles();
+                    if (detected != null) {
+                        for (Object r : detected) {
+                            if (r != null) allRoles.add(((Bundle)r).getName());
+                        }
+                    }
+
+                    for (String rName : allRoles) {
+                        String lowName = rName.toLowerCase();
+                        caps.add(lowName);
+                        System.out.println("[SailSetu] Found Role for " + identity.getName() + ": " + lowName);
+                    }
+                    
+                    if (caps.size() <= 1) {
+                         System.out.println("[SailSetu] No specific roles found for " + identity.getName() + " (Only 'user')");
+                    }
                     
                     // Convert to JSON array
                     StringBuilder json = new StringBuilder("[");

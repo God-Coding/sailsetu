@@ -32,34 +32,56 @@
             success = false;
             message = "Unknown error";
 
-            if (password == null || password.length() == 0) {
+            // 1. Validate Credentials using HTTP Loopback (like connection-form.tsx)
+            // We use standard Java HttpURLConnection in Beanshell
+            try {
+                String targetUrl = "http://localhost:8080/identityiq/scim/v2/ServiceProviderConfig";
+                java.net.URL url = new java.net.URL(targetUrl);
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                
+                // Construct Basic Auth Header manually
+                String auth = identityName + ":" + password;
+                String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes("UTF-8"));
+                conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
+                conn.setRequestProperty("Content-Type", "application/scim+json");
+                conn.setRequestProperty("Accept", "application/scim+json, application/json");
+                
+                int status = conn.getResponseCode();
+                
+                if (status != 200) {
+                     workflow.put("success", "false");
+                     workflow.put("message", "Invalid Password (HTTP " + status + ")");
+                     return;
+                }
+            } catch (Exception e) {
+                 workflow.put("success", "false");
+                 workflow.put("message", "Auth Error: " + e.getMessage());
+                 return;
+            }
+
+            // 2. Fetch Identity (Validated)
+            Identity identity = context.getObjectByName(Identity.class, identityName);
+            if (identity == null) {
                 workflow.put("success", "false");
-                workflow.put("message", "Password is required");
+                workflow.put("message", "Identity not found");
                 return;
             }
 
-            // 1. Fetch Identity Explicitly
-            Identity identity = context.getObjectByName(Identity.class, identityName);
+            // 2. Normalize Phone
+            String normalizedPhone = phoneNumber.replaceAll("[^0-9]", "");
+
+            // 3. Set PHONE Attribute
+            identity.setAttribute("phone", normalizedPhone);
             if (identity == null) {
                 workflow.put("success", "false");
                  workflow.put("message", "Identity not found: " + identityName);
                  return;
             }
 
-            // 2. Validate Password (Explicit Check)
-            // Using direct comparison as requested by user since auth failed.
-            String storedPwd = identity.getPassword();
-            if (storedPwd != null && !storedPwd.equals(password)) {
-                 workflow.put("success", "false");
-                 workflow.put("message", "Invalid Password");
-                 return;
-            }
-            
             // 3. Set PHONE Attribute
             identity.setAttribute("phone", normalizedPhone);
-            
-            // Optional: Also set whatsappPhone for our index if needed, but user asked for 'phone'
-            identity.setAttribute("whatsappPhone", normalizedPhone);
+    
             
             context.saveObject(identity);
             context.commitTransaction();

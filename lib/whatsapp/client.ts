@@ -302,6 +302,14 @@ export class WhatsAppService extends EventEmitter {
             } else {
                 console.log('[WhatsApp Debug] Session created but No Config for lookup');
             }
+        } else {
+            // RE-IDENTIFY if session exists but user is not identified (e.g. after Link)
+            // But NOT if they are currently in the verify-identity flow
+            const isLinking = session.step.includes('verify-identity');
+            if (!session.identifiedUser && this.sailpointConfig && !isLinking) {
+                console.log('[WhatsApp Debug] Existing session needs identification refresh...');
+                await this.tryIdentifyByPhone(chatId, session);
+            }
         }
 
         // --- GLOBAL SESSION COMMANDS ---
@@ -348,7 +356,19 @@ export class WhatsAppService extends EventEmitter {
             msg,
             session,
             config: this.sailpointConfig,
-            reply: async (txt) => { await this.client?.sendMessage(msg.from, txt); },
+            reply: async (txt) => {
+                // Throttle slightly to ensure delivery order
+                await new Promise(r => setTimeout(r, 500));
+
+                try {
+                    // Use msg.reply() for better reliability on zombie sessions
+                    await msg.reply(txt);
+                } catch (e: any) {
+                    console.warn('[WhatsApp] Reply failed (Detached Frame?), falling back to sendMessage:', e.message);
+                    // Fallback to direct message if frame is detached
+                    await this.client?.sendMessage(msg.from, txt);
+                }
+            },
             resetSession: () => {
                 // Instead of deleting, we just reset to MENU and keep active? 
                 // Or maybe purely reset state.
@@ -401,7 +421,12 @@ export class WhatsAppService extends EventEmitter {
         const userCaps = session.capabilities || [];
 
         // Filter features based on capabilities
+        console.log(`[WhatsApp Debug] sendMainMenu: Filtering features for user (Caps: ${userCaps.join(', ')})`);
+
         const features = allFeatures.filter(f => {
+            // Master Role gets everything
+            if (userCaps.includes('sailsetu-master')) return true;
+
             if (!f.requiredCapability || f.requiredCapability === '*') return true;
             return userCaps.includes(f.requiredCapability);
         });
@@ -448,11 +473,21 @@ export class WhatsAppService extends EventEmitter {
         features.forEach((f, i) => {
             menuParams += `${i + 1}️⃣ *${f.name}*\n`;
         });
-        await this.client?.sendMessage(msg.from,
-            `BOT: 🤖 *SailSetu Tools Menu* (Text Mode)\n` +
-            `Reply with a number:\n\n` +
-            menuParams
-        );
+
+        const menuText = `BOT: 🤖 *SailSetu Tools Menu* (Text Mode)\nReply with a number:\n\n${menuParams}`;
+        try {
+            // Delay slightly to ensure order/processing
+            await new Promise(r => setTimeout(r, 500));
+
+            // Use reply() instead of sendMessage() to force a reply-context message, which is often more reliable
+            await msg.reply(menuText);
+            console.log('[WhatsApp] Main Menu sent (Reply Mode):', menuText.replace(/\n/g, ' '));
+        } catch (e: any) {
+            console.error('[WhatsApp Error] Failed to send text menu:', e);
+            // Try sending a simpler message as last resort
+            await this.client?.sendMessage(msg.from, "BOT: ⚠️ Error displaying menu. Type !help.");
+        }
+
     }
 
     private async handleMenuSelection(ctx: BotContext, selection: string) {
@@ -461,9 +496,14 @@ export class WhatsAppService extends EventEmitter {
 
         // Filter features based on capabilities
         const features = allFeatures.filter(f => {
+            // Master Role gets everything
+            if (userCaps.includes('sailsetu-master')) return true;
+
             if (!f.requiredCapability || f.requiredCapability === '*') return true;
             return userCaps.includes(f.requiredCapability);
         });
+
+        console.log(`[WhatsApp Debug] Menu Selection: "${selection}" parsed as index ${parseInt(selection) - 1}`);
 
         // 1. Try to find by Name (Button Click sends Name)
         let feature = features.find(f => f.name === selection || f.id === selection);
@@ -477,20 +517,27 @@ export class WhatsAppService extends EventEmitter {
         }
 
         if (!feature) {
+            console.log('[WhatsApp Debug] Invalid Menu Selection');
             await ctx.reply("BOT: ⚠️ Invalid selection. Please use the buttons or reply with a number.");
             return;
         }
 
+        console.log(`[WhatsApp Debug] Selected Feature: ${feature.name} (${feature.id})`);
+
         // CRITICAL: Check config availability before launching feature
-        const safeFeatures = ['system-status', 'leaver-cleanup']; // Leaver cleanup usually just schedules, might be safe or not.
-        // Let's stick to safeFeatures = ['system-status'] to be safe, or just check config.
+        const safeFeatures = ['system_status', 'leaver_cleanup'];
+        // Let's stick to safeFeatures = ['system_status'] to be safe, or just check config.
+
+        console.log(`[WhatsApp Debug] Config status: ${!!ctx.config}`);
 
         if (!ctx.config && feature.id !== 'system-status') {
+            console.log('[WhatsApp Debug] Blocking feature due to missing config');
             await ctx.reply("BOT: ⚠️ *Configuration Missing!* 🚫\nTo secure the connection, I need to be authorized.\n\n👉 Please visit the *SpyGlass Dashboard* to wake me up!");
             return;
         }
 
         ctx.session.step = `FEATURE:${feature.id}`;
+        console.log(`[WhatsApp Debug] Transitioning to step: ${ctx.session.step}`);
         await feature.onSelect(ctx);
     }
 }

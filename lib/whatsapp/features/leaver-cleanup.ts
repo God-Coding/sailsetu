@@ -9,7 +9,7 @@ class LeaverCleanupFeature implements Feature {
     id = 'leaver_cleanup';
     name = 'Leaver Cleanup';
     description = 'Auto Scan & Revoke access for leavers';
-    requiredCapability = "Admin";
+    requiredCapability = "sailsetu-leavercleanup";
 
     async onSelect(ctx: BotContext) {
         ctx.session.data.internalStep = 'SELECT_MODE';

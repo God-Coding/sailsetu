@@ -7,7 +7,7 @@ export class AccessReviewFeature implements Feature {
     id = "access-reviews";
     name = "Access Reviews";
     description = "View and act on pending access certifications.";
-    requiredCapability = "Reviewer";
+    requiredCapability = "sailsetu-user";
 
     async onSelect(ctx: BotContext) {
         ctx.session.data = {}; // Clear data

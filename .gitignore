@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# whatsapp-web.js
+.wwebjs_auth/
+.wwebjs_cache/
+
+# sailsetu specific
+/sailsetu - standalone/
+*.txt
+auth-server/

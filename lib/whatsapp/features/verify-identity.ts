@@ -8,6 +8,7 @@ export class VerifyIdentityFeature implements Feature {
     description = "Connect your WhatsApp number to your SailPoint identity.";
 
     async onSelect(ctx: BotContext) {
+        console.log('[Verify] Feature Selected. Initializing session...');
         ctx.session.data = {};
         ctx.session.data.internalStep = 'ASK_USERNAME';
 
@@ -16,6 +17,7 @@ export class VerifyIdentityFeature implements Feature {
             `To link your WhatsApp number to SailPoint, please enter your *SailPoint username*.\n\n` +
             `Type *'cancel'* to abort.`
         );
+        console.log('[Verify] Start message sent.');
     }
 
     async handler(ctx: BotContext, text: string) {
@@ -66,44 +68,14 @@ export class VerifyIdentityFeature implements Feature {
             const username = ctx.session.data.pendingUsername;
             const phoneNumber = ctx.msg.from.replace('@c.us', '').replace('@s.whatsapp.net', '');
 
-            await ctx.reply(`BOT: ⏳ Validating credentials with SailPoint...`);
+            await ctx.reply(`BOT: ⏳ Verifying and linking account...`);
 
             try {
-                // 1. Validate Credentials via SailPoint API (Basic Auth)
-                const baseUrl = ctx.config?.url ? ctx.config.url.replace(/\/$/, '') : 'http://localhost:8080/identityiq';
-                const testUrl = `${baseUrl}/scim/v2/Identity/${username}`;
-                // We test accessing their own identity or a general endpoint
-                // Actually 'Me' is best but let's try reading their Identity which they should have access to.
-
-                const creds = Buffer.from(`${username}:${password}`).toString('base64');
-
-                console.log(`[Verify] Testing auth against: ${testUrl}`);
-                const authResponse = await fetch(testUrl, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Basic ${creds}` }
-                });
-
-                if (authResponse.status === 401 || authResponse.status === 403) {
-                    await ctx.reply("BOT: ❌ Invalid Password. Please try again.");
-                    // Remain in ASK_PASSWORD step
-                    return;
-                }
-
-                if (!authResponse.ok) {
-                    console.error(`[Verify] Auth Check Error: ${authResponse.status}`);
-                    // If it's not 401/403, it might be a system error or 404. Proceed with caution or fail?
-                    // Let's assume fail to be safe.
-                    await ctx.reply(`BOT: ⚠️ Error validating credentials (Status: ${authResponse.status}).`);
-                    return;
-                }
-
-                await ctx.reply(`BOT: ✅ Verified! Linking account...`);
-
-                // 2. Register Mapping (No password needed, trusted call by Admin)
+                // Pass password to workflow for internal validation
                 const result = await launchWorkflow('RegisterPhoneMapping', {
                     phoneNumber,
-                    identityName: username
-                    // No password passed to workflow
+                    identityName: username,
+                    password: password
                 }, ctx.config);
 
                 if (result.success) {
@@ -119,16 +91,15 @@ export class VerifyIdentityFeature implements Feature {
                     const message = getAttr('message') || 'Unknown result';
 
                     if (success) {
-                        // Update session with verified identity
-                        ctx.session.identifiedUser = username;
-                        ctx.session.displayName = username;
-                        ctx.session.capabilities = ['User']; // Default, will be updated on next lookup
+                        // Clear session so the next command triggers a fresh identity lookup with Roles
+                        ctx.session.identifiedUser = null;
+                        ctx.session.capabilities = [];
 
                         await ctx.reply(
                             `BOT: ✅ *Success!*\n\n` +
                             `Your WhatsApp is now linked to *${username}*.\n` +
                             `Phone attribute updated in IdentityIQ.\n\n` +
-                            `Type *!menu* to see available tools.`
+                            `Please type *!menu* to see your available tools (refreshing roles...).`
                         );
                         ctx.resetSession(); // Done
                     } else {

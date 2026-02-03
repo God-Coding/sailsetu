@@ -5,7 +5,7 @@ export const systemStatusFeature: Feature = {
     id: 'system_status',
     name: 'System Status',
     description: 'Check connectivity status',
-    requiredCapability: '*',
+    requiredCapability: 'sailsetu-master',
 
     async onSelect(ctx: BotContext) {
         if (ctx.config && ctx.config.url) {
