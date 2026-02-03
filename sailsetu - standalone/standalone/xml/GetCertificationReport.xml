@@ -1,0 +1,303 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow name="GetCertificationReport" type="LCMProvisioning">
+  <Variable name="identityName" input="true" />
+  <Variable name="reportData" output="true" />
+  
+  <Step name="FetchCertData" icon="Analysis">
+    <Script>
+      <Source><![CDATA[
+
+        import sailpoint.object.*;
+        import sailpoint.tools.Util;
+        import sailpoint.tools.JsonUtil;
+        import java.util.*;
+
+        String targetIdentity = identityName;
+        List results = new ArrayList();
+
+        // 1. Identify Latest Certification via CertificationEntity
+        QueryOptions entityQO = new QueryOptions();
+        entityQO.addFilter(Filter.eq("targetName", targetIdentity));
+        entityQO.addOrdering("created", false); // Newest first
+        
+        Iterator entityIter = context.search(CertificationEntity.class, entityQO);
+        
+        List targetItems = new ArrayList();
+        String certName = "";
+        String phase = "";
+        String signed = "";
+        
+        // Only need the first one (Latest)
+        if (entityIter != null && entityIter.hasNext()) {
+             CertificationEntity entity = (CertificationEntity) entityIter.next();
+             Certification cert = entity.getCertification();
+             
+             if (cert != null) {
+                 certName = cert.getName();
+                 phase = cert.getPhase().toString();
+                 signed = cert.getSigned() != null ? cert.getSigned().toString() : "Pending";
+                 
+                 List entityItems = entity.getItems();
+                 if (entityItems != null) {
+                     targetItems.addAll(entityItems);
+                 }
+             }
+             Util.flushIterator(entityIter);
+        }
+
+        // 2. Process Items
+        List finalItems = new ArrayList();
+        
+        for (Object obj : targetItems) {
+            CertificationItem item = (CertificationItem) obj;
+            
+            // Initialize vars
+            CertificationAction action = null;
+            String itemName = null;
+            String type = "Entitlement";
+            String exceptionApp = null;
+            String status = "Open";
+            String actor = "Pending";
+            String afterState = "Unchanged";
+            String rawStatus = "null";
+            String debugDump = "ID=" + item.getId(); // Minimal debug init
+
+            // --- ISOLATED SAFE GETTERS ---
+            
+            // 1. Get Action (Safe)
+            try { action = item.getAction(); } catch (Throwable t) {}
+
+            // 2. Get Exception Application (Safe)
+            try { exceptionApp = item.getExceptionApplication(); } catch (Throwable t) {}
+
+            // 3. Resolve Snapshots (Safe)
+            List snapshots = null;
+            try {
+                snapshots = item.getEntitlements();
+            } catch (Throwable t) {}
+
+            if (snapshots == null || snapshots.isEmpty()) {
+                try {
+                     Object val = item.getExceptionEntitlements();
+                     if (val != null) {
+                        if (val instanceof List) snapshots = (List) val;
+                        else if (val instanceof sailpoint.object.EntitlementSnapshot) {
+                            snapshots = new ArrayList();
+                            snapshots.add(val);
+                        }
+                     }
+                } catch (Throwable t) {}
+            }
+            
+            // 4. Try resolve from Snapshots
+            if (snapshots != null && !snapshots.isEmpty() && snapshots.get(0) instanceof sailpoint.object.EntitlementSnapshot) {
+                sailpoint.object.EntitlementSnapshot snap = (sailpoint.object.EntitlementSnapshot) snapshots.get(0);
+                
+                try {
+                    if (snap.getAttributeValue() != null) itemName = String.valueOf(snap.getAttributeValue());
+                } catch (Throwable t) {}
+                
+                if (itemName == null) {
+                    try { itemName = snap.getNativeIdentity(); } catch (Throwable t) {}
+                }
+                
+                // Use exceptionApp if available, else snapshot app
+                String app = exceptionApp;
+                if (app == null) {
+                    try { app = snap.getApplication(); } catch (Throwable t) {}
+                }
+                
+                try {
+                    if (item.getType() != null && "Account".equals(item.getType().toString())) {
+                        if (app != null && itemName != null) itemName = app + ": " + itemName;
+                        type = "Account";
+                    }
+                } catch (Throwable t) {}
+            }
+
+            // 5. XML Parsing Fallback (Nuclear Option)
+            // If itemName is still null, parse raw XML.
+            if (itemName == null) {
+               try {
+                   String xml = item.toXml();
+                   if (xml != null) {
+                       // Parse exceptionApplication if missing
+                       if (exceptionApp == null) {
+                           java.util.regex.Pattern pExApp = java.util.regex.Pattern.compile("exceptionApplication='([^']*)'");
+                           java.util.regex.Matcher mExApp = pExApp.matcher(xml);
+                           if (mExApp.find()) exceptionApp = mExApp.group(1);
+                       }
+
+                       java.util.regex.Pattern pId = java.util.regex.Pattern.compile("nativeIdentity='([^']*)'");
+                       java.util.regex.Matcher mId = pId.matcher(xml);
+                       if (mId.find()) {
+                           itemName = mId.group(1);
+                           
+                           String app = exceptionApp;
+                           if (app == null) {
+                               java.util.regex.Pattern pApp = java.util.regex.Pattern.compile("application='([^']*)'");
+                               java.util.regex.Matcher mApp = pApp.matcher(xml);
+                               if (mApp.find()) app = mApp.group(1);
+                           }
+                           
+                           if (app != null) itemName = app + ": " + itemName;
+                           type = "Account";
+                       }
+                   }
+               } catch (Throwable t) {}
+            }
+
+            // 6. Other Fallbacks (Safe)
+            if (itemName == null) {
+                try {
+                    if (item.getBundle() != null) {
+                        itemName = item.getBundle();
+                        type = "Role";
+                    }
+                } catch (Throwable t) {}
+            }
+
+            if (itemName == null) {
+                try {
+                    Attributes attrs = item.getAttributes();
+                    if (attrs != null && attrs.getMap() != null) {
+                        Map map = attrs.getMap();
+                        if (map.containsKey("attributeValue")) itemName = String.valueOf(map.get("attributeValue"));
+                        else if (map.containsKey("displayValue")) itemName = String.valueOf(map.get("displayValue"));
+                        else if (map.containsKey("entitlement")) itemName = String.valueOf(map.get("entitlement"));
+                        else if (map.containsKey("nativeIdentity")) { itemName = String.valueOf(map.get("nativeIdentity")); type = "Account"; }
+                        else if (map.containsKey("value")) itemName = String.valueOf(map.get("value"));
+                        else if (map.containsKey("name")) itemName = String.valueOf(map.get("name"));
+                    }
+                } catch (Throwable t) {}
+            }
+
+            if (itemName == null) {
+                 try { itemName = item.getTargetDisplayName(); if (itemName != null) type = "Account"; } catch (Throwable t) {}
+            }
+            
+            if (itemName == null) {
+                 try { itemName = item.getTargetName(); if (itemName != null) type = "Account"; } catch (Throwable t) {}
+            }
+
+            if (itemName == null) {
+                try {
+                    if (item.getAccountGroup() != null) {
+                        itemName = item.getAccountGroup();
+                        type = "Account Group";
+                    }
+                } catch (Throwable t) {}
+            }
+
+            if (itemName == null) {
+                 try {
+                     Object val = item.getAttribute("nativeIdentity");
+                     if (val != null) {
+                         itemName = String.valueOf(val);
+                         type = "Account";
+                     }
+                 } catch (Throwable t) {}
+            }
+            
+            if (itemName == null) {
+                 try {
+                     sailpoint.object.Snapshot snap = item.getSnapshot();
+                     if (snap != null && snap instanceof sailpoint.object.LinkSnapshot) {
+                         sailpoint.object.LinkSnapshot lsnap = (sailpoint.object.LinkSnapshot) snap;
+                         itemName = lsnap.getNativeIdentity();
+                         if (lsnap.getApplicationName() != null) {
+                             itemName = lsnap.getApplicationName() + ": " + itemName;
+                         }
+                         type = "Account";
+                     }
+                 } catch (Throwable t) {}
+            }
+            
+            if (itemName == null) {
+                 itemName = "Unresolved Item " + item.getId();
+                 type = "Unknown";
+            }
+            
+            // 7. Status Resolution (Safe)
+            try { debugDump += ", Summary=" + item.getSummaryStatus(); } catch (Throwable t) {}
+
+            try {
+                if (item.getSummaryStatus() != null) status = item.getSummaryStatus().toString();
+            } catch (Throwable t) {}
+
+            if (action != null) {
+                 try {
+                     if (action.getStatus() != null) status = action.getStatus().toString();
+                     actor = action.getActorName();
+                 } catch (Throwable t) {}
+            }
+            
+            rawStatus = status;
+
+            // Normalize Status
+            if ("Approved".equalsIgnoreCase(status) || "Certified".equalsIgnoreCase(status)) {
+                status = "Approved";
+                afterState = "Approved (Kept)";
+            } else if ("Remediated".equalsIgnoreCase(status) || "Revoked".equalsIgnoreCase(status)) {
+                status = "Revoked";
+                afterState = "Revoked (Lost)";
+            } else {
+                afterState = status;
+            }
+
+            Map row = new HashMap();
+            row.put("name", itemName);
+            row.put("type", type);
+            row.put("decision", status);
+            row.put("actor", actor);
+            row.put("before", "Present");
+            row.put("after", afterState);
+            row.put("debug_raw_status", rawStatus);
+            row.put("debug_item_dump", debugDump);
+            
+            finalItems.add(row);
+        }
+
+        // 3. Assemble Output
+        Map root = new HashMap();
+        root.put("certName", certName.isEmpty() ? "No Certification Found" : certName);
+        root.put("phase", phase);
+        root.put("signedDate", signed);
+        root.put("items", finalItems);
+        
+        // Manual JSON Construction
+        StringBuilder sb = new StringBuilder();
+        sb.append("[{");
+        sb.append("\"certName\": \"").append(certName != null ? certName.replace("\"", "\\\"") : "").append("\",");
+        sb.append("\"phase\": \"").append(phase != null ? phase.replace("\"", "\\\"") : "").append("\",");
+        sb.append("\"signedDate\": \"").append(signed != null ? signed.replace("\"", "\\\"") : "").append("\",");
+        sb.append("\"items\": [");
+
+        for (int i = 0; i < finalItems.size(); i++) {
+            Map map = (Map) finalItems.get(i);
+            sb.append("{");
+            sb.append("\"name\": \"").append(map.get("name") != null ? map.get("name").toString().replace("\"", "\\\"") : "").append("\",");
+            sb.append("\"type\": \"").append(map.get("type") != null ? map.get("type").toString().replace("\"", "\\\"") : "").append("\",");
+            sb.append("\"decision\": \"").append(map.get("decision") != null ? map.get("decision").toString().replace("\"", "\\\"") : "").append("\",");
+            sb.append("\"actor\": \"").append(map.get("actor") != null ? map.get("actor").toString().replace("\"", "\\\"") : "").append("\",");
+            sb.append("\"before\": \"").append(map.get("before") != null ? map.get("before").toString().replace("\"", "\\\"") : "").append("\",");
+            sb.append("\"after\": \"").append(map.get("after") != null ? map.get("after").toString().replace("\"", "\\\"") : "").append("\",");
+            sb.append("\"debug_raw_status\": \"").append(map.get("debug_raw_status") != null ? map.get("debug_raw_status").toString().replace("\"", "\\\"") : "").append("\",");
+            sb.append("\"debug_item_dump\": \"").append(map.get("debug_item_dump") != null ? map.get("debug_item_dump").toString().replace("\"", "\\\"") : "").append("\"");
+            sb.append("}");
+            if (i < finalItems.size() - 1) sb.append(",");
+        }
+
+        sb.append("]}]");
+        String finalJson = sb.toString();
+        
+        if (wfcontext != null) {
+            wfcontext.getWorkflowCase().put("reportData", finalJson);
+        } else {
+            workflow.put("reportData", finalJson); 
+        }
+      ]]></Source>
+    </Script>
+  </Step>
+</Workflow>

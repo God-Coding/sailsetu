@@ -33,6 +33,7 @@ export async function launchWorkflow(workflowName: string, input: any, config: {
     };
 
     console.log(`[Launch Worklow] ${workflowName} -> ${targetUrl}`);
+    console.log(`[Launch Payload]`, JSON.stringify(payload, null, 2));
 
     const response = await fetch(targetUrl, {
         method: 'POST',
@@ -50,6 +51,7 @@ export async function launchWorkflow(workflowName: string, input: any, config: {
     }
 
     const data = await response.json();
+    console.log(`[Launch Response]`, JSON.stringify(data, null, 2));
     return {
         success: true,
         launchResult: data

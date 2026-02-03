@@ -1,0 +1,180 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow explicitTransitions="true" name="RepairIdentityRequest" type="Maintenance">
+  <Variable input="true" name="requestId">
+    <Description>The ID of the request to fix.</Description>
+  </Variable>
+  <Variable name="maintenanceLog" output="true">
+    <Description>Log of actions taken.</Description>
+  </Variable>
+
+  <Step icon="Start" name="Start" posX="28" posY="10">
+    <Transition to="Scan and Repair"/>
+  </Step>
+
+  <Step icon="Task" name="Scan and Repair" posX="176" posY="10" resultVariable="maintenanceLog">
+    <Script>
+      <Source>
+        <![CDATA[
+        import sailpoint.object.Identity;
+        import sailpoint.object.IdentityRequest;
+        import sailpoint.object.ProvisioningProject;
+        import sailpoint.object.WorkflowCase;
+        import sailpoint.object.Filter;
+        import sailpoint.object.QueryOptions;
+        import java.util.List;
+        import java.util.ArrayList;
+
+        StringBuffer logBuffer = new StringBuffer();
+        logBuffer.append("Starting maintenance for Request ID: " + requestId + "\n");
+
+        if (requestId == null) {
+            return "Error: No Request ID provided.";
+        }
+
+        // 1. Find Specific Request
+        IdentityRequest req = context.getObjectByName(IdentityRequest.class, requestId);
+        
+        if (req == null) {
+             // Try searching by ID if name lookup failed (sometimes name != id)
+             req = context.getObjectById(IdentityRequest.class, requestId);
+        }
+
+        if (req == null) {
+            logBuffer.append("Error: IdentityRequest '" + requestId + "' not found in database.\n");
+        } else {
+            logBuffer.append("Found Request: " + req.getName() + " [Status: " + req.getExecutionStatus() + "]\n");
+            
+            // List items
+            List items = req.getItems();
+            if (items != null) {
+                for (Object itemObj : items) {
+                     sailpoint.object.IdentityRequestItem item = (sailpoint.object.IdentityRequestItem) itemObj;
+                     logBuffer.append("  -> Item: " + item.getApplication() + " " + item.getOperation() + " " + item.getValue() + "\n");
+                }
+            }
+
+            // Find associated WorkflowCase
+            String reqId = req.getId();
+            WorkflowCase wfCase = null;
+            List cases = null;
+            
+            if (reqId != null) {
+                QueryOptions wcQo = new QueryOptions();
+                // We don't have targetName anymore easily, so we rely on exact ID match or other filters if needed.
+                // Actually, filtering by identityRequestId attribute on ALL cases might be slow if we don't scope.
+                // BEST PRACTICE: If we have the targetId from the request, scope by that.
+                
+                String targetName = req.getTargetDisplayName(); 
+                // Or try to get target object
+                if (targetName != null) {
+                     wcQo.addFilter(Filter.eq("targetName", targetName));
+                }
+                
+                cases = context.getObjects(WorkflowCase.class, wcQo);
+                if (cases != null) {
+                    for (Object c : cases) {
+                        WorkflowCase wc = (WorkflowCase) c;
+                        String wcReqId = (String) wc.get("identityRequestId");
+                        if (wcReqId != null && wcReqId.equals(reqId)) {
+                            wfCase = wc;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (wfCase != null) {
+                logBuffer.append("  - Associated WorkflowCase: " + wfCase.getName() + " Status: " + wfCase.getState() + "\n");
+            } else {
+                 int count = (cases != null) ? cases.size() : 0;
+                 logBuffer.append("  - No related WorkflowCase found! This request is likely a Zombie.\n");
+                 
+                 // REPAIR LOGIC
+                 boolean needsSave = false;
+                 boolean allApprovalsDone = true;
+                 boolean allProvisioningSafe = true; // Safe means Committed, Queued, or Finished.
+                 
+                 // VALIDATION PHASE
+                 if (items != null) {
+                    for (Object itemObj : items) {
+                         sailpoint.object.IdentityRequestItem item = (sailpoint.object.IdentityRequestItem) itemObj;
+                         
+                         // Check Approval Status
+                         if (item.getApprovalState() != null && !item.getApprovalState().name().equals("Finished")) {
+                             logBuffer.append("  -> ABORT: Item '" + item.getValue() + "' has pending approvals (Status: " + item.getApprovalState() + "). Cannot force complete.\n");
+                             allApprovalsDone = false;
+                             break; 
+                         }
+                         
+                         // Check Provisioning Status safety
+                         // We only touch it if it's Committed, Queued, or already Finished.
+                         // If it's Pending (not started) or Failed, we should not blindly force success.
+                         if (item.getProvisioningState() != null) {
+                             String pState = item.getProvisioningState().name();
+                             if (!pState.equals("Committed") && !pState.equals("Queued") && !pState.equals("Finished")) {
+                                 logBuffer.append("  -> WARNING: Item '" + item.getValue() + "' is in state '" + pState + "'. Skipping repair to avoid false positive.\n");
+                                 allProvisioningSafe = false;
+                             }
+                         }
+                    }
+                 }
+                 
+                 // EXECUTION PHASE
+                 if (allApprovalsDone && allProvisioningSafe) {
+                     
+                     // 1. Fix Items (Committed -> Finished)
+                     if (items != null) {
+                        for (Object itemObj : items) {
+                             sailpoint.object.IdentityRequestItem item = (sailpoint.object.IdentityRequestItem) itemObj;
+                             if (item.getProvisioningState() != null) {
+                                 String pState = item.getProvisioningState().name();
+                                 if (pState.equals("Committed") || pState.equals("Queued")) {
+                                      logBuffer.append("  -> ACTION: Fixing stuck item '" + item.getValue() + "' (was " + pState + "). Setting to Finished.\n");
+                                      item.setProvisioningState(sailpoint.object.IdentityRequestItem.ProvisioningState.Finished);
+                                      needsSave = true;
+                                 }
+                             }
+                        }
+                     }
+                     
+                     // 2. Fix Parent Header (Executing/Verifying -> Completed)
+                     if (req.getExecutionStatus() != null) {
+                         String execStatus = req.getExecutionStatus().name();
+                         if (execStatus.equals("Executing") || execStatus.equals("Verifying")) {
+                             logBuffer.append("  -> ACTION: Fixing stuck Header (was " + execStatus + "). Setting to Completed.\n");
+                             req.setExecutionStatus(IdentityRequest.ExecutionStatus.Completed);
+                             needsSave = true;
+                         }
+                     }
+
+                     // 3. Fix Parent Completion Status (Incomplete -> Success)
+                     if (req.getCompletionStatus() != null && req.getCompletionStatus().name().equals("Incomplete")) {
+                          logBuffer.append("  -> ACTION: Fixing parent CompletionStatus (was Incomplete). Setting to Success.\n");
+                          req.setCompletionStatus(sailpoint.object.IdentityRequest.CompletionStatus.Success);
+                          needsSave = true;
+                     }
+                     
+                     if (needsSave) {
+                         context.saveObject(req);
+                         context.commitTransaction();
+                         logBuffer.append("  -> SUCCESS: Request Repaired and Saved.\n");
+                     } else {
+                         logBuffer.append("  -> Request looks healthy. No changes needed.\n");
+                     }
+                     
+                 } else {
+                     logBuffer.append("  -> SKIPPED: Pre-checks failed. See logs above.\n");
+                 }
+            }
+        }
+        
+        return logBuffer.toString();
+        ]]>
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+  </Step>
+
+  <Step icon="Stop" name="Stop" posX="350" posY="10"/>
+</Workflow>

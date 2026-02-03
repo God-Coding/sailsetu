@@ -1,0 +1,112 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+
+<sailpoint>
+  <Workflow name="SetEmergencyAccess" type="IdentityUpdate" libraries="Identity">
+    <Variable input="true" name="identityName">
+      <Description>User requesting access</Description>
+    </Variable>
+    <Variable input="true" name="durationMinutes">
+      <Description>Duration in minutes</Description>
+    </Variable>
+    <Variable input="true" name="targetApp">
+      <Description>Application to provision to</Description>
+    </Variable>
+    <Variable input="true" name="attributeName">
+      <Description>Name of the entitlement attribute (e.g. memberOf, capability)</Description>
+    </Variable>
+    <Variable input="true" name="attributeValue">
+      <Description>Value of the entitlement (e.g. Domain Admins, super)</Description>
+    </Variable>
+
+    <Variable name="expiryTimestamp" output="true" />
+
+    <Step icon="Start" name="Start" posX="25" posY="10">
+      <Transition to="Grant Access"/>
+    </Step>
+
+    <Step name="Grant Access" posX="150" posY="10">
+      <Script>
+        <Source>
+          <![CDATA[
+          import sailpoint.object.Identity;
+          import sailpoint.object.ProvisioningPlan;
+          import sailpoint.object.ProvisioningPlan.AccountRequest;
+          import sailpoint.object.ProvisioningPlan.AttributeRequest;
+          import sailpoint.api.Provisioner;
+          import java.util.Date;
+          import java.util.Calendar;
+          import java.util.List;
+          import sailpoint.tools.GeneralException;
+
+          // 1. Calculate Expiry
+          int min = 60; // Default 1 hour
+          if (durationMinutes != null) {
+              try { min = Integer.parseInt(durationMinutes.toString()); } catch(Exception e) {}
+          }
+          
+          Calendar cal = Calendar.getInstance();
+          cal.add(Calendar.MINUTE, min);
+          Date expiry = cal.getTime();
+          workflow.put("expiryTimestamp", expiry.getTime());
+
+          // 2. Grant Dynamic Capability
+          if (identityName == null || targetApp == null || attributeName == null || attributeValue == null) {
+              // Fail gracefully or log warning if missing inputs
+              // For demo: Use Fallback or Return
+              return;
+          }
+          
+          Identity id = context.getObjectByName(Identity.class, identityName);
+          if (id != null) {
+              String nativeId = id.getName(); // Default fallback
+              
+              // 1. Auto-Detect Native Identity
+              List links = id.getLinks();
+              if (links != null) {
+                  for (sailpoint.object.Link l : links) {
+                      if (l.getApplicationName().equalsIgnoreCase(targetApp)) {
+                          nativeId = l.getNativeIdentity();
+                          break;
+                      }
+                  }
+              }
+              
+              ProvisioningPlan plan = new ProvisioningPlan();
+              plan.setIdentity(id);
+              
+              AccountRequest acctReq = new AccountRequest();
+              acctReq.setApplication(targetApp);
+              acctReq.setOperation(ProvisioningPlan.AccountRequest.Operation.Modify);
+              acctReq.setNativeIdentity(nativeId); 
+              
+              // Grant requested entitlement
+              acctReq.add(new AttributeRequest(attributeName, ProvisioningPlan.Operation.Add, attributeValue));
+              
+              plan.add(acctReq);
+              
+              Provisioner p = new Provisioner(context);
+              p.compile(plan);
+              p.execute(plan);
+          }
+          ]]>
+        </Source>
+      </Script>
+      <Transition to="Schedule Revocation"/>
+    </Step>
+
+    <Step name="Schedule Revocation" posX="300" posY="10">
+       <Script>
+         <Source>
+         <![CDATA[
+           // This step represents where we would schedule the 'Remove Access' workflow.
+           // For the demo, we assume the user (or a scheduled task) will click "End Session".
+         ]]>
+         </Source>
+       </Script>
+       <Transition to="Stop"/>
+    </Step>
+
+    <Step icon="Stop" name="Stop" posX="450" posY="10"/>
+  </Workflow>
+</sailpoint>

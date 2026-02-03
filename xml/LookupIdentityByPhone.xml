@@ -1,0 +1,150 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<sailpoint>
+  <Workflow name="LookupIdentityByPhone" type="Research" libraries="Identity">
+    <Variable input="true" name="phoneNumber">
+      <Description>WhatsApp phone number to lookup (e.g., 919063248559)</Description>
+    </Variable>
+    <Variable output="true" name="found">
+      <Description>true if Identity was found, false otherwise</Description>
+    </Variable>
+    <Variable output="true" name="identityName">
+      <Description>The name of the found Identity</Description>
+    </Variable>
+    <Variable output="true" name="displayName">
+      <Description>The display name of the found Identity</Description>
+    </Variable>
+    <Variable output="true" name="email">
+      <Description>Email of the found Identity</Description>
+    </Variable>
+    <Variable output="true" name="capabilities">
+      <Description>JSON array of capabilities (e.g., ["Reviewer", "Admin"])</Description>
+    </Variable>
+
+    <Step icon="Start" name="Start" posX="25" posY="10">
+      <Transition to="Search By Phone"/>
+    </Step>
+
+    <Step name="Search By Phone" posX="150" posY="10">
+      <Script>
+        <Source>
+          <![CDATA[
+            import sailpoint.object.*;
+            import sailpoint.tools.Util;
+            import java.util.*;
+
+            found = false;
+            identityName = null;
+            displayName = null;
+            email = null;
+            capabilities = "[]";
+
+            if (phoneNumber != null && phoneNumber.length() > 0) {
+                // Normalize phone number (strip + and spaces)
+                String normalizedPhone = phoneNumber.replaceAll("[^0-9]", "");
+                
+                String customName = "SailSetuPhoneMappings";
+                Custom custom = context.getObjectByName(Custom.class, customName);
+                String mappedIdentityName = null;
+                
+                if (custom != null) {
+                    mappedIdentityName = (String) custom.get(normalizedPhone);
+                }
+
+                Identity identity = null;
+
+                // 1. Try Custom Mapping
+                if (mappedIdentityName != null) {
+                    identity = context.getObjectByName(Identity.class, mappedIdentityName);
+                }
+
+                // 2. Fallback: Search by 'phone' attribute (Auto-Discovery)
+                if (identity == null) {
+                     try {
+                        QueryOptions qo = new QueryOptions();
+                        List filters = new ArrayList();
+                        
+                        // Exact match (normalized)
+                        filters.add(Filter.eq("attributes.phone", normalizedPhone));
+                        
+                        // Match with + prefix (common in SailPoint)
+                        filters.add(Filter.eq("attributes.phone", "+" + normalizedPhone));
+                        
+                        // Match with spaces (e.g. +91 630...) - Try a few common formats
+                        // Note: Filter.like is expensive, so we try explicit formats if possible.
+                        // For now, let's rely on exact or simple variations. 
+                        
+                        qo.addFilter(Filter.or(filters));
+                        qo.setResultLimit(1);
+                        
+                        Iterator it = context.search(Identity.class, qo);
+                        if (it.hasNext()) {
+                            identity = (Identity) it.next();
+                        }
+                        Util.flushIterator(it);
+                     } catch (Exception e) {
+                        // Log error but continue (fail gracefully)
+                        System.out.println("Error searching by attribute: " + e);
+                     }
+                }
+
+                // 3. Process Identity if found
+                if (identity != null) {
+                    workflow.put("found", "true");
+                    workflow.put("identityName", identity.getName());
+                    workflow.put("displayName", identity.getDisplayName());
+                    workflow.put("email", identity.getEmail());
+                    
+                    // Build capabilities list (SAFE VERSION)
+                    List caps = new ArrayList();
+                    
+                    // Check Reviewer
+                    try {
+                        QueryOptions wiQo = new QueryOptions();
+                        wiQo.addFilter(Filter.eq("owner", identity));
+                        wiQo.addFilter(Filter.eq("type", WorkItem.Type.Certification));
+                        wiQo.setResultLimit(1);
+                        if (context.countObjects(WorkItem.class, wiQo) > 0) {
+                            caps.add("Reviewer");
+                        }
+                    } catch (Exception e) {}
+                    
+                    // Check Admin (Safe)
+                    try {
+                        if (identity.getCapabilityManager() != null) {
+                            List adminCaps = identity.getCapabilityManager().getEffectiveCapabilities();
+                                if (adminCaps != null) {
+                                for (Object cap : adminCaps) {
+                                    Capability c = (Capability) cap;
+                                    if (c != null && (c.getName().contains("Admin") || c.getName().equals("SystemAdministrator"))) {
+                                        caps.add("Admin");
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception e) {}
+                    
+                    caps.add("User");
+                    
+                    // Convert to JSON array
+                    StringBuilder json = new StringBuilder("[");
+                    for (int i = 0; i < caps.size(); i++) {
+                        if (i > 0) json.append(",");
+                        json.append("\"").append(caps.get(i)).append("\"");
+                    }
+                    json.append("]");
+                    workflow.put("capabilities", json.toString());
+                } else {
+                    workflow.put("found", "false");
+                }
+            }
+          ]]>
+        </Source>
+      </Script>
+      <Transition to="Stop"/>
+    </Step>
+
+    <Step icon="Stop" name="Stop" posX="300" posY="10"/>
+  </Workflow>
+</sailpoint>

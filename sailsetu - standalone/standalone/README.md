@@ -1,103 +1,36 @@
-# SailPoint Connector - Standalone Deployment
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-This is a standalone deployment package of the SailPoint Connector application. It includes all necessary dependencies and can be run independently without requiring the full development environment.
+## Getting Started
 
-## Quick Start
-
-### Prerequisites
-- **Node.js 18+** (will be auto-installed if missing)
-
-### Running the Application
-
-1. **Double-click** `start_app.bat` to launch the application
-   - The script will check for Node.js and install it if needed
-   - The server will start on port 3000
-
-2. **Access the application** at: `http://localhost:3000`
-
-## Manual Start
-
-If you prefer to start the server manually:
+First, run the development server:
 
 ```bash
-node server.js
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-## Configuration
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-### Environment Variables
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-Edit the `.env` file to configure:
-- Azure OpenAI endpoint and API key
-- Deployment model
-- API version
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-### Port Configuration
+## Learn More
 
-The default port is 3000. To change it, edit `start_app.bat` and modify:
-```batch
-set PORT=3000
-```
+To learn more about Next.js, take a look at the following resources:
 
-Or set the PORT environment variable before running:
-```bash
-set PORT=8080
-node server.js
-```
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-## Features
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-This standalone deployment includes all features from the main SailPoint Connector:
+## Deploy on Vercel
 
-- **Dashboard** - Central hub for all tools
-- **Rule Runner** - Execute SailPoint rules with XML editor
-- **Workflow Access** - Launch and manage workflows
-- **Application Cloner** - Duplicate applications via SCIM API
-- **Batch Operations** - Bulk identity operations
-- **Certification Reports** - Generate access certification reports
-- **AI Reports** - AI-powered reporting and analysis
-- **Product Customization** - Custom XML object management
-- **Request Maintenance** - Manage access requests
-- **Leaver Cleanup** - Automated identity cleanup
-- **Firefighter Access** - Emergency access management
-- **Workgroup Management** - Manage workgroups
-- **Code Visualizer** - Visualize XML workflows and rules
-- **Profile Management** - User profile operations
-- **XML Comparison** - Compare XML configurations
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-## Troubleshooting
-
-### Server Won't Start
-- Ensure Node.js 18+ is installed: `node -v`
-- Check if port 3000 is already in use
-- Verify `.env` file exists and is properly configured
-
-### Cannot Connect to IdentityIQ
-- Ensure IdentityIQ is running (typically at `http://localhost:8080/identityiq`)
-- Check network connectivity
-- Verify credentials in the application
-
-### Missing Features
-- This build was created on: ${new Date().toISOString().split('T')[0]}
-- If features are missing, rebuild from the main project
-
-## Updating the Standalone Build
-
-To update with the latest code from the main project:
-
-1. Navigate to the main project directory
-2. Ensure `next.config.ts` has `output: 'standalone'`
-3. Run `npm run build`
-4. Copy `.next/standalone/*` to this directory
-5. Copy `public/` folder
-6. Copy `.next/static/` to `.next/static/`
-7. Copy `.env` file
-
-## Support
-
-For issues or questions, refer to the main project documentation.
-
----
-
-**Build Date**: ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })}  
-**Version**: Standalone Build
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

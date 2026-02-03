@@ -1,0 +1,77 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<sailpoint>
+  <Workflow name="GetPendingReviews" type="Research" libraries="Identity">
+    <Variable input="true" name="reviewerName">
+      <Description>The name of the identity to fetch reviews for.</Description>
+    </Variable>
+    <Variable output="true" name="reviews">
+      <Description>JSON list of pending reviews.</Description>
+    </Variable>
+
+    <Step icon="Start" name="Start" posX="25" posY="10">
+      <Transition to="Search Reviews"/>
+    </Step>
+
+    <Step name="Search Reviews" posX="150" posY="10">
+      <Script>
+        <Source>
+          <![CDATA[
+            import sailpoint.object.*;
+            import sailpoint.tools.Util;
+            import java.util.*;
+
+            List results = new ArrayList();
+
+            if (reviewerName != null) {
+                Identity reviewer = context.getObjectByName(Identity.class, reviewerName);
+                if (reviewer != null) {
+                    QueryOptions qo = new QueryOptions();
+                    qo.addFilter(Filter.eq("owner", reviewer));
+                    qo.addFilter(Filter.eq("type", WorkItem.Type.Certification));
+                    // Optional: Filter for open items only
+                    // qo.addFilter(Filter.eq("state", WorkItem.State.Pending)); // or similar? WorkItems are usually deleted when complete.
+
+                    Iterator it = context.search(WorkItem.class, qo);
+                    while (it.hasNext()) {
+                        WorkItem wi = (WorkItem) it.next();
+                        Map map = new HashMap();
+                        map.put("id", wi.getId());
+                        map.put("name", wi.getDescription() != null ? wi.getDescription() : wi.getName());
+                        map.put("created", wi.getCreated() != null ? wi.getCreated().toString() : "");
+                        map.put("target", wi.getTargetName()); // Often the User being reviewed in targeted certs
+                        map.put("type", wi.getType().toString());
+                        results.add(map);
+                    }
+                    Util.flushIterator(it);
+                }
+            }
+
+            // JSON Serialization
+            StringBuilder json = new StringBuilder();
+            json.append("[");
+            for(int i=0; i<results.size(); i++) {
+                Map item = (Map) results.get(i);
+                json.append("{");
+                json.append("\"id\":\"").append(item.get("id")).append("\",");
+                json.append("\"name\":\"").append(item.get("name") != null ? item.get("name").toString().replace("\"", "\\\"") : "").append("\",");
+                json.append("\"target\":\"").append(item.get("target") != null ? item.get("target").toString().replace("\"", "\\\"") : "").append("\",");
+                json.append("\"created\":\"").append(item.get("created")).append("\"");
+                json.append("}");
+                if(i < results.size()-1) json.append(",");
+            }
+            json.append("]");
+
+            workflow.put("reviews", json.toString());
+            return json.toString();
+          ]]>
+        </Source>
+      </Script>
+      <Transition to="Stop"/>
+    </Step>
+
+    <Step icon="Stop" name="Stop" posX="300" posY="10">
+        <Return name="reviews" to="reviews"/>
+    </Step>
+  </Workflow>
+</sailpoint>

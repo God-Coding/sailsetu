@@ -24,6 +24,7 @@
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/firefighter/page": "app/firefighter/page.js",
   "/leaver-cleanup/page": "app/leaver-cleanup/page.js",
+  "/login/page": "app/login/page.js",
   "/page": "app/page.js",
   "/product-customization/page": "app/product-customization/page.js",
   "/profile/page": "app/profile/page.js",

@@ -1,0 +1,227 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow explicitTransitions="true" name="CreateWorkgroup" type="IdentityLifecycle">
+  <Variable input="true" name="description">
+    <Description>Workgroup Description</Description>
+  </Variable>
+  <Variable input="true" name="email">
+    <Description>Group Email Address</Description>
+  </Variable>
+  <Variable input="true" name="capabilities">
+    <Description>List of Capabilities (comma separated names)</Description>
+  </Variable>
+  
+  <Variable name="result" output="true"/>
+  <Variable name="debugTrace" output="true"/>
+
+  <Step icon="Start" name="Start" posX="20" posY="20">
+    <Transition to="Create Workgroup"/>
+  </Step>
+
+  <Step icon="Task" name="Create Workgroup" posX="150" posY="20" resultVariable="result">
+    <Script>
+      <Source>
+        <![CDATA[
+        import sailpoint.object.Identity;
+        import sailpoint.object.Capability;
+        import sailpoint.object.QueryOptions;
+        import sailpoint.object.Filter;
+        import java.util.List;
+        import java.util.ArrayList;
+        import sailpoint.tools.JsonUtil;
+
+        String trace = "Starting Workgroup Creation. ";
+        
+        try {
+            if (workgroupName == null) {
+                return "Error: Workgroup Name is required.";
+            }
+
+            Identity existing = context.getObjectByName(Identity.class, workgroupName);
+            if (existing != null) {
+                return "Error: Identity/Workgroup '" + workgroupName + "' already exists.";
+            }
+
+            // PHASE 1: Create Basic Object
+            Identity wg = new Identity();
+            wg.setName(workgroupName);
+            wg.setDisplayName(workgroupName);
+            wg.setWorkgroup(true);
+            
+            if (email != null && !email.isEmpty()) {
+                wg.setEmail(email);
+                try {
+                    wg.setPreference("workgroupNotificationOption", sailpoint.object.Identity.WorkgroupNotificationOption.Both);
+                } catch (Exception e) {
+                     trace += "Could not set Notif Enum: " + e.toString() + ". ";
+                }
+            }
+
+            // Set Description via native method (will rely on verify/save in Phase 2)
+            if (description != null) {
+                wg.setDescription(description);
+            }
+
+            if (ownerName != null && !ownerName.isEmpty()) {
+                Identity owner = context.getObjectByName(Identity.class, ownerName);
+                if (owner != null) {
+                    wg.setOwner(owner);
+                } else {
+                    trace += "Owner '" + ownerName + "' not found. ";
+                }
+            }
+
+            context.saveObject(wg);
+            context.commitTransaction();
+            trace += "Workgroup basic created. ";
+            
+            // PHASE 2: Reload and Add Capabilities
+            // Decache to force reload from DB
+            context.decache(wg);
+            wg = context.getObjectByName(Identity.class, workgroupName);
+            
+            // Re-assert description just in case
+            if (description != null) wg.setDescription(description);
+            
+            List resolvedCaps = new ArrayList(); 
+            if (capabilities != null) {
+                 // Explicitly log raw input
+                 trace += "Raw Caps Input: [" + capabilities + "]. ";
+                 
+                 if (capabilities instanceof String) {
+                    String cStr = (String) capabilities;
+                    // Handle JSON array syntax if present, just in case
+                    if (cStr.startsWith("[")) {
+                         try {
+                              org.json.JSONArray ja = new org.json.JSONArray(cStr);
+                              for(int i=0; i<ja.length(); i++) {
+                                  String cName = ja.getString(i);
+                                  // Logic copy (refactor ideally)
+                                  Capability cap = context.getObjectByName(Capability.class, cName);
+                                  if (cap == null) {
+                                      cap = context.getUniqueObject(Capability.class, Filter.eq("displayName", cName));
+                                  }
+                                  if (cap != null) resolvedCaps.add(cap);
+                              }
+                         } catch (Exception e) { /* ignore, try split */ }
+                    }
+
+                    String[] parts = cStr.split(",");
+                    for(String p : parts) {
+                        String cName = p.trim();
+                        if (cName.replaceAll("[\\[\\]\"]", "").length() > 0) {
+                            cName = cName.replaceAll("[\\[\\]\"]", "").trim(); // clean JSON artifacts if mixed
+                            
+                            trace += "Looking for: |" + cName + "|. ";
+                            
+                            // Try Name match
+                            Capability cap = context.getObjectByName(Capability.class, cName);
+                            // Try Display Name match if null
+                            if (cap == null) {
+                                Filter f = Filter.eq("displayName", cName);
+                                cap = context.getUniqueObject(Capability.class, f);
+                            }
+                            
+                            if (cap != null) {
+                                // Prevent duplicates in resolved list
+                                boolean already = false;
+                                for(Object o : resolvedCaps) if(((Capability)o).getName().equals(cap.getName())) already=true;
+                                if(!already) {
+                                    resolvedCaps.add(cap);
+                                    trace += "Found: " + cap.getName() + ". ";
+                                }
+                            } else {
+                                trace += "Not Found. ";
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (resolvedCaps.size() > 0) {
+                // Use add() instead of setCapabilities to ensure persistence triggers
+                for(Object cObj : resolvedCaps) {
+                     Capability c = (Capability) cObj;
+                     // check existing to avoid dupes? add() generally handles it or list acts as set?
+                     // Identity capabilities is a List.
+                     boolean has = false;
+                     List curr = wg.getCapabilities();
+                     if (curr != null) {
+                         for(Object k : curr) {
+                             if (((Capability)k).getName().equals(c.getName())) has = true;
+                         }
+                     }
+                     if (!has) {
+                         wg.add(c);
+                     }
+                }
+                
+                context.saveObject(wg);
+                context.commitTransaction();
+                trace += "Assigned " + resolvedCaps.size() + " caps to Workgroup. ";
+            }
+
+            // PHASE 3: Handle Members
+            if (members != null && !members.toString().isEmpty()) {
+                List memberList = new ArrayList();
+                if (members instanceof String) {
+                    String mStr = (String) members;
+                    String[] parts = mStr.split(",");
+                     for(String p : parts) memberList.add(p.trim());
+                } else if (members instanceof List) {
+                    memberList = members;
+                }
+
+                int addedCount = 0;
+                for(Object mObj : memberList) {
+                    String mName = (String) mObj;
+                    if(mName == null || mName.isEmpty()) continue;
+                    
+                    Identity user = context.getObjectByName(Identity.class, mName);
+                    if (user != null) {
+                         // Add workgroup
+                         if (user.getWorkgroups() == null) {
+                             user.setWorkgroups(new ArrayList());
+                         }
+                         user.add(wg);
+                         
+                         // Add Capabilities to User directly
+                         if (resolvedCaps.size() > 0) {
+                             List userCaps = user.getCapabilities();
+                             if (userCaps == null) userCaps = new ArrayList();
+                             
+                             for(Object cObj : resolvedCaps) {
+                                 Capability c = (Capability) cObj;
+                                 boolean exists = false;
+                                 for(Object ec : userCaps) {
+                                     if ( ((Capability)ec).getName().equals(c.getName()) ) exists = true;
+                                 }
+                                 if (!exists) userCaps.add(c);
+                             }
+                             user.setCapabilities(userCaps);
+                         }
+
+                         context.saveObject(user);
+                         addedCount++;
+                    }
+                }
+                context.commitTransaction();
+                trace += "Added " + addedCount + " members. ";
+            }
+            
+            workflow.put("debugTrace", trace);
+            return "Success: Created Workgroup '" + workgroupName + "'";
+
+        } catch (Exception e) {
+            String err = "Exception: " + e.toString();
+            workflow.put("debugTrace", trace + err);
+            return err;
+        }
+        ]]>
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+  </Step>
+
+  <Step icon="Stop" name="Stop" posX="300" posY="20"/>
+</Workflow>

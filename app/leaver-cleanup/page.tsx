@@ -236,8 +236,124 @@ export default function LeaverCleanupPage() {
         setAnalyzing(true);
         setReport([]);
 
-
         try {
+            if (mode === "manual" && csvFile) {
+                // Read File Content
+                const text = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target?.result as string);
+                    reader.onerror = reject;
+                    reader.readAsText(csvFile);
+                });
+
+                const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+                if (lines.length > 0) {
+                    const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+                    const colMap = {
+                        id: header.indexOf('identityname'),
+                        app: header.indexOf('application'),
+                        attr: header.indexOf('attributename'),
+                        val: header.indexOf('attributevalue')
+                    };
+
+                    // Check if detailed columns exist
+                    if (colMap.app !== -1 && colMap.attr !== -1 && colMap.id !== -1) {
+                        // --- LOCAL PARSING + SMART VERIFICATION MODE ---
+                        const proposedMap = new Map<string, any>();
+                        const uniqueIdentities = new Set<string>();
+
+                        lines.slice(1).forEach(l => {
+                            const cols = l.split(',').map(c => c.trim().replace(/"/g, ''));
+                            if (cols.length <= colMap.id) return;
+
+                            const identity = cols[colMap.id];
+                            if (!identity) return;
+                            uniqueIdentities.add(identity);
+
+                            if (!proposedMap.has(identity)) {
+                                proposedMap.set(identity, {
+                                    identityName: identity,
+                                    inactive: true,
+                                    appCount: 0,
+                                    entitlementCount: 0,
+                                    applications: [],
+                                    accessItems: []
+                                });
+                            }
+
+                            const item = {
+                                type: "Entitlement",
+                                application: cols[colMap.app] || "",
+                                attribute: cols[colMap.attr] || "",
+                                value: cols[colMap.val] || "",
+                                op: "Remove"
+                            };
+
+                            const leaver = proposedMap.get(identity);
+                            leaver.accessItems.push(item);
+                            if (!leaver.applications.includes(item.application)) leaver.applications.push(item.application);
+                        });
+
+                        // SMART VERIFY: Scan live access
+                        const payload: any = {
+                            url, username, password,
+                            mode: "csv", // Scan mode for the list
+                            inactiveAttr: selectedAttr,
+                            identityList: Array.from(uniqueIdentities)
+                        };
+
+                        const res = await fetch("/api/leaver/analyze", {
+                            method: "POST",
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await res.json();
+
+                        let actualMap = new Map();
+                        if (data.success && data.report) {
+                            data.report.forEach((r: any) => {
+                                actualMap.set(r.identityName, r.accessItems || []);
+                            });
+                        }
+
+                        // Filter Proposed against Actual
+                        const verifiedReport: any[] = [];
+                        let removedCount = 0;
+
+                        proposedMap.forEach((leaver, identity) => {
+                            const actualItems = actualMap.get(identity) || [];
+                            const validItems = leaver.accessItems.filter((propItem: any) => {
+                                const exists = actualItems.some((actItem: any) =>
+                                    actItem.application === propItem.application &&
+                                    (actItem.name === propItem.attribute || actItem.value === propItem.value)
+                                );
+                                if (!exists) removedCount++;
+                                return exists;
+                            });
+
+                            if (validItems.length > 0) {
+                                verifiedReport.push({
+                                    ...leaver,
+                                    accessItems: validItems,
+                                    entitlementCount: validItems.length,
+                                    applications: Array.from(new Set(validItems.map((i: any) => i.application)))
+                                });
+                            }
+                        });
+
+                        if (verifiedReport.length === 0) {
+                            alert(`Analysis Complete: All items in CSV were already revoked or invalid.`);
+                        } else {
+                            if (removedCount > 0) alert(`Verification: Filtered out ${removedCount} items that were already revoked.`);
+                            setReport(verifiedReport);
+                        }
+
+                        setAnalyzing(false);
+                        return; // SKIP Default logic
+                    }
+                }
+            }
+
+            // --- API SCAN MODE ---
             const payload: any = {
                 url, username, password,
                 mode: mode === "auto" ? "scan" : "csv",

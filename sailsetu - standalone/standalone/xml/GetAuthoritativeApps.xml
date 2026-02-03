@@ -1,0 +1,53 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow name="GetAuthoritativeApps" type="Research" libraries="Identity">
+  <Variable name="apps" output="true" />
+  
+  <Step icon="Start" name="Start" posX="25" posY="10">
+    <Transition to="Search"/>
+  </Step>
+
+  <Step name="Search" posX="150" posY="10" resultVariable="apps">
+    <Script>
+      <Source>
+        <![CDATA[
+        import sailpoint.object.Application;
+        import java.util.ArrayList;
+        import java.util.List;
+        import java.util.Map;
+        import java.util.HashMap;
+
+        List allApps = context.getObjects(Application.class);
+        
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        
+        if (allApps != null) {
+            boolean first = true;
+            for (Application app : allApps) {
+                // Return ALL apps, let UI filter or show auth flag
+                boolean isAuth = app.isAuthoritative();
+                
+                if (!first) sb.append(",");
+                first = false;
+                
+                sb.append("{");
+                sb.append("\"id\":\"").append(app.getId()).append("\",");
+                sb.append("\"name\":\"").append(app.getName().replaceAll("\"", "\\\\\"")).append("\",");
+                sb.append("\"authoritative\":").append(isAuth);
+                sb.append("}");
+            }
+        }
+        sb.append("]");
+        
+        return sb.toString();
+        ]]>
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+  </Step>
+
+  <Step icon="Stop" name="Stop" posX="300" posY="10">
+    <Return name="apps" to="apps"/>
+  </Step>
+</Workflow>

@@ -1,0 +1,312 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow name="AnalyzeLeaver" type="Research" libraries="Identity">
+  <Variable input="true" name="mode">
+    <Description>"scan" or "csv"</Description>
+  </Variable>
+  <Variable input="true" name="source">
+    <Description>Authoritative Application Name (to ignore links from this source)</Description>
+  </Variable>
+  <Variable input="true" name="identityList">
+    <Description>List of identity names (for CSV mode)</Description>
+  </Variable>
+
+  <Variable input="true" name="inactiveAttr">
+    <Description>Attribute name to check for inactivity (default: inactive)</Description>
+  </Variable>
+
+  <Variable name="report" output="true">
+    <Description>JSON List of analysis results</Description>
+  </Variable>
+
+  <Step icon="Start" name="Start" posX="25" posY="10">
+    <Transition to="Analyze"/>
+  </Step>
+
+  <Step name="Analyze" posX="150" posY="10">
+    <Script>
+      <Source>
+        <![CDATA[
+        import sailpoint.object.*;
+        import java.util.*;
+        
+        List results = new ArrayList();
+        
+        // Helper to check inactivity based on attr
+        boolean checkInactive(Identity id, String attrName) {
+            if (id == null) return false;
+            // Native isInactive() fallback
+            if (attrName == null || attrName.isEmpty() || "inactive".equalsIgnoreCase(attrName)) {
+                return id.isInactive();
+            }
+            // Check custom attribute
+            Object val = id.getAttribute(attrName);
+            if (val != null) {
+                if (val instanceof Boolean) return ((Boolean)val).booleanValue();
+                if (val instanceof String) return Boolean.parseBoolean((String)val);
+            }
+            return false;
+        }
+
+        // Helper to analyze a single identity
+        Map analyzeIdentity(Identity id, String authSource, String attrName) {
+            if (id == null) return null;
+            
+            boolean isInactive = checkInactive(id, attrName);
+            if (!isInactive) return null; // Skip active users in scan mode
+            
+            // Get residual access (ignore authSource)
+            List links = id.getLinks();
+            List accessItems = new ArrayList();
+            int accessCount = 0;
+            
+            // 1. Roles
+            List assigned = id.getAssignedRoles();
+            if (assigned != null) {
+                for (Bundle b : assigned) {
+                    Map item = new HashMap();
+                    item.put("type", "Role");
+                    item.put("name", b.getDisplayName() != null ? b.getDisplayName() : b.getName());
+                    item.put("value", b.getName());
+                    item.put("application", "IIQ"); 
+                    item.put("op", "Remove"); // Pre-stage for removal
+                    accessItems.add(item);
+                }
+            }
+            
+            // 2. Links / Entitlements
+            if (links != null) {
+                for (Link l : links) {
+                    String appName = l.getApplicationName();
+                    
+                    accessCount++; // Count the account/link itself
+                    Application app = l.getApplication();
+                    
+                    // Add Account Removal
+                    Map acctItem = new HashMap();
+                    acctItem.put("type", "Account");
+                    acctItem.put("application", appName);
+                    acctItem.put("name", "Account: " + l.getNativeIdentity()); 
+                    acctItem.put("value", l.getNativeIdentity());
+                    acctItem.put("op", "Delete"); // Account deletion
+                    accessItems.add(acctItem);
+
+                    // Fetch Entitlements using standard API
+                    List entitlements = l.getEntitlements(Locale.getDefault(), "");
+                    if (entitlements != null) {
+                         for (Object obj : entitlements) {
+                             if (obj instanceof Entitlement) {
+                                  Entitlement ent = (Entitlement) obj;
+                                  String entAttr = ent.getAttributeName();
+                                  Object val = ent.getAttributeValue();
+                                  
+                                  if (val != null) {
+                                      List vals = new ArrayList();
+                                      if (val instanceof List) vals.addAll((List)val);
+                                      else vals.add(val);
+                                      
+                                      for (Object v : vals) {
+                                          String entValue = (String) v;
+                                          accessCount++;
+                                          
+                                          Map entItem = new HashMap();
+                                          entItem.put("type", "Entitlement");
+                                          entItem.put("application", appName);
+                                          entItem.put("attribute", entAttr); // Add attribute name
+                                          entItem.put("value", entValue);
+                                          entItem.put("op", "Remove");
+                                          
+                                          // Try to find ManagedAttribute for description and Attribute Name resolution
+                                          QueryOptions maQo = new QueryOptions();
+                                          maQo.addFilter(Filter.eq("application", app));
+                                          maQo.addFilter(Filter.eq("value", entValue));
+                                          
+                                          Iterator maIt = context.search(ManagedAttribute.class, maQo);
+                                          if (maIt.hasNext()) {
+                                              ManagedAttribute ma = (ManagedAttribute) maIt.next();
+                                              entItem.put("name", ma.getDisplayName() != null ? ma.getDisplayName() : ma.getValue());
+                                              // Explicitly use getAttribute() as requested
+                                              entItem.put("attribute", ma.getAttribute());
+                                          } else {
+                                              entItem.put("name", entValue);
+                                              // If MA not found, we use the entAttr we got from Link (or "unknown" if that was null)
+                                              entItem.put("attribute", (entAttr!=null && !entAttr.isEmpty()) ? entAttr : "unknown");
+                                          }
+                                          sailpoint.tools.Util.flushIterator(maIt);
+                                          
+                                          accessItems.add(entItem);
+                                      }
+                                  }
+                             }
+                         }
+                    }
+                }
+            }
+            
+            accessCount = accessItems.size();
+            
+            if (accessCount > 0) {
+                Map res = new HashMap();
+                res.put("identityName", id.getName());
+                // Safe attribute get
+                String empId = id.getAttribute("employeeId") != null ? id.getStringAttribute("employeeId") : "";
+                res.put("employeeId", empId);
+                res.put("status", "Inactive (" + (attrName!=null?attrName:"inactive") + ")");
+                res.put("accessCount", accessCount);
+                res.put("accessItems", accessItems);
+                
+                // Risk Level
+                String risk = "Medium";
+                if (accessCount > 5) risk = "High";
+                // Check for admin/privileged keywords in items
+                for(Object o : accessItems) {
+                    Map m = (Map)o;
+                    String n = (String)m.get("name");
+                    if (n != null && (n.toLowerCase().contains("admin") || n.toLowerCase().contains("root"))) {
+                        risk = "High";
+                        break;
+                    }
+                }
+                res.put("riskLevel", risk);
+                
+                return res;
+            }
+            return null;
+        }
+
+        if ("scan".equalsIgnoreCase(mode)) {
+            QueryOptions qo = new QueryOptions();
+            
+            // optimization: use index for standard 'inactive'
+            if (inactiveAttr == null || inactiveAttr.isEmpty() || "inactive".equalsIgnoreCase(inactiveAttr)) {
+                 qo.addFilter(Filter.eq("inactive", true));
+            }
+            if (source != null && !source.isEmpty()) {
+                 qo.addFilter(Filter.eq("links.application.name", source));
+            }
+            
+            // Note: inactiveAttr logic is handled in-memory in analyzeIdentity because custom attributes might not be indexed/searchable
+            // But if 'inactive' is the standard boolean, we could optimizations:
+            // The above block already handles the standard 'inactive' attribute.
+            // If inactiveAttr is a custom attribute, it will be checked in analyzeIdentity.
+            
+            Iterator it = context.search(Identity.class, qo);
+            while (it.hasNext()) {
+                Identity id = (Identity) it.next();
+                try {
+                    Map res = analyzeIdentity(id, source, inactiveAttr);
+                    if (res != null) {
+                        results.add(res);
+                    }
+                } finally {
+                    context.decache(id);
+                }
+            }
+            sailpoint.tools.Util.flushIterator(it);
+            
+        } else if ("csv".equalsIgnoreCase(mode) && identityList != null) {
+             List names = new ArrayList();
+             if (identityList instanceof String) {
+                 String sList = (String) identityList;
+                 String[] parts = sList.split(",");
+                 for(String s : parts) {
+                     if(s.trim().length() > 0) names.add(s.trim());
+                 }
+             } else if (identityList instanceof List) {
+                 names = (List) identityList;
+             }
+             
+             for (Object nameObj : names) {
+                 String name = (String) nameObj;
+                 if (name == null || name.trim().isEmpty()) continue;
+                 
+                 Identity id = context.getObjectByName(Identity.class, name);
+                 if (id != null) {
+                     Map res = analyzeIdentity(id, source, inactiveAttr);
+                     if (res == null) {
+                         // Build clean report manually if inactive check fails or no access
+                         boolean isInactive = checkInactive(id, inactiveAttr);
+                         res = new HashMap();
+                         res.put("identityName", id.getName());
+                         res.put("employeeId", id.getAttribute("employeeId") != null ? id.getStringAttribute("employeeId") : "");
+                         res.put("status", isInactive ? "Inactive" : "Active");
+                         res.put("accessCount", 0);
+                         res.put("riskLevel", "Low");
+                         res.put("accessItems", new ArrayList());
+                     }
+                     results.add(res);
+                     context.decache(id);
+                 } else {
+                     Map res = new HashMap();
+                     res.put("identityName", name);
+                     res.put("status", "Not Found");
+                     res.put("accessCount", 0);
+                     res.put("riskLevel", "Low");
+                     results.add(res);
+                 }
+             }
+        }
+        
+        // Manual JSON serialization for complex list of maps
+        StringBuilder json = new StringBuilder();
+        json.append("[");
+        for(int i=0; i<results.size(); i++) {
+            Map r = (Map) results.get(i);
+            json.append("{");
+            json.append("\"identityName\":\"").append(r.get("identityName")).append("\",");
+            json.append("\"employeeId\":\"").append(r.get("employeeId")).append("\",");
+            json.append("\"status\":\"").append(r.get("status")).append("\",");
+            json.append("\"riskLevel\":\"").append(r.get("riskLevel")).append("\",");
+            json.append("\"accessCount\":").append(r.get("accessCount")).append(",");
+            
+            json.append("\"accessItems\":[");
+            List items = (List) r.get("accessItems");
+            if(items != null) {
+                for(int j=0; j<items.size(); j++) {
+                    Map item = (Map) items.get(j);
+                    json.append("{");
+                    json.append("\"type\":\"").append(item.get("type")).append("\",");
+                    // Null safety
+                    String app = (String) item.get("application"); 
+                    if(app==null) app="";
+                    json.append("\"application\":\"").append(app).append("\",");
+                    
+                    String nm = (String) item.get("name");
+                    if(nm==null) nm="";
+                    json.append("\"name\":\"").append(nm).append("\",");
+                    
+                    String val = (String) item.get("value");
+                    if(val==null) val="";
+                    json.append("\"value\":\"").append(val).append("\",");
+
+                    String attr = (String) item.get("attribute"); 
+                    if(attr==null) attr="";
+                    json.append("\"attribute\":\"").append(attr).append("\",");
+                    
+                    json.append("\"op\":\"").append(item.get("op")).append("\"");
+                    json.append("}");
+                    if(j < items.size()-1) json.append(",");
+                }
+            }
+            json.append("]");
+            
+            json.append("}");
+            if(i < results.size()-1) json.append(",");
+        }
+        json.append("]");
+        
+        if (wfcontext != null) {
+            wfcontext.getWorkflowCase().put("report", json.toString());
+        }
+        
+        return json.toString();
+        ]]>
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+  </Step>
+
+  <Step icon="Stop" name="Stop" posX="300" posY="10">
+    <Return name="report" to="report"/>
+  </Step>
+</Workflow>

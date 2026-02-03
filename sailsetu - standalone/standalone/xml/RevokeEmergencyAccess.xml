@@ -1,0 +1,79 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+
+<sailpoint>
+  <Workflow name="RevokeEmergencyAccess" type="IdentityUpdate" libraries="Identity">
+    <Variable input="true" name="identityName">
+      <Description>User to revoke access from</Description>
+    </Variable>
+    <Variable input="true" name="targetApp">
+      <Description>Application to revoke from</Description>
+    </Variable>
+    <Variable input="true" name="attributeName">
+      <Description>Name of the entitlement attribute</Description>
+    </Variable>
+    <Variable input="true" name="attributeValue">
+      <Description>Value of the entitlement</Description>
+    </Variable>
+
+    <Step icon="Start" name="Start" posX="25" posY="10">
+      <Transition to="Revoke Access"/>
+    </Step>
+
+    <Step name="Revoke Access" posX="150" posY="10">
+      <Script>
+        <Source>
+          <![CDATA[
+          import sailpoint.object.Identity;
+          import sailpoint.object.ProvisioningPlan;
+          import sailpoint.object.ProvisioningPlan.AccountRequest;
+          import sailpoint.object.ProvisioningPlan.AttributeRequest;
+          import sailpoint.api.Provisioner;
+          import java.util.List;
+          import sailpoint.object.Link;
+
+          if (identityName == null || targetApp == null || attributeName == null || attributeValue == null) {
+              return;
+          }
+          
+          Identity id = context.getObjectByName(Identity.class, identityName);
+          if (id != null) {
+              String nativeId = id.getName(); // Default fallback
+              
+              // 1. Auto-Detect Native Identity (Same logic as Grant)
+              List links = id.getLinks();
+              if (links != null) {
+                  for (Link l : links) {
+                      if (l.getApplicationName().equalsIgnoreCase(targetApp)) {
+                          nativeId = l.getNativeIdentity();
+                          break;
+                      }
+                  }
+              }
+              
+              ProvisioningPlan plan = new ProvisioningPlan();
+              plan.setIdentity(id);
+              
+              AccountRequest acctReq = new AccountRequest();
+              acctReq.setApplication(targetApp);
+              acctReq.setOperation(ProvisioningPlan.AccountRequest.Operation.Modify);
+              acctReq.setNativeIdentity(nativeId); 
+              
+              // Revoke requested entitlement
+              acctReq.add(new AttributeRequest(attributeName, ProvisioningPlan.Operation.Remove, attributeValue));
+              
+              plan.add(acctReq);
+              
+              Provisioner p = new Provisioner(context);
+              p.compile(plan);
+              p.execute(plan);
+          }
+          ]]>
+        </Source>
+      </Script>
+      <Transition to="Stop"/>
+    </Step>
+
+    <Step icon="Stop" name="Stop" posX="300" posY="10"/>
+  </Workflow>
+</sailpoint>

@@ -1,0 +1,89 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<sailpoint>
+  <Workflow name="RegisterPhoneMapping" type="Research" libraries="Identity">
+    <Variable input="true" name="phoneNumber">
+      <Description>WhatsApp phone number to register (e.g., 919063248559)</Description>
+    </Variable>
+    <Variable input="true" name="identityName">
+      <Description>The Identity to map the phone number to</Description>
+    </Variable>
+    <Variable input="true" name="password">
+      <Description>SailPoint Password for verification</Description>
+    </Variable>
+    <Variable output="true" name="success">
+      <Description>true if mapping was successful</Description>
+    </Variable>
+    <Variable output="true" name="message">
+      <Description>Status message</Description>
+    </Variable>
+
+    <Step icon="Start" name="Start" posX="25" posY="10">
+      <Transition to="Register Mapping"/>
+    </Step>
+
+    <Step name="Register Mapping" posX="150" posY="10">
+      <Script>
+        <Source>
+          <![CDATA[
+            import sailpoint.object.*;
+            import sailpoint.api.ObjectUtil;
+
+            success = false;
+            message = "Unknown error";
+
+            if (password == null || password.length() == 0) {
+                workflow.put("success", "false");
+                workflow.put("message", "Password is required");
+                return;
+            }
+
+            // 1. Fetch Identity Explicitly
+            Identity identity = context.getObjectByName(Identity.class, identityName);
+            if (identity == null) {
+                workflow.put("success", "false");
+                 workflow.put("message", "Identity not found: " + identityName);
+                 return;
+            }
+
+            // 2. Validate Password (Explicit Check)
+            // Using direct comparison as requested by user since auth failed.
+            String storedPwd = identity.getPassword();
+            if (storedPwd != null && !storedPwd.equals(password)) {
+                 workflow.put("success", "false");
+                 workflow.put("message", "Invalid Password");
+                 return;
+            }
+            
+            // 3. Set PHONE Attribute
+            identity.setAttribute("phone", normalizedPhone);
+            
+            // Optional: Also set whatsappPhone for our index if needed, but user asked for 'phone'
+            identity.setAttribute("whatsappPhone", normalizedPhone);
+            
+            context.saveObject(identity);
+            context.commitTransaction();
+            
+            // Also maintain Custom Object Map for fast lookups (backup)
+            String customName = "SailSetuPhoneMappings";
+            Custom custom = context.getObjectByName(Custom.class, customName);
+            if (custom == null) {
+                custom = new Custom();
+                custom.setName(customName);
+                 custom.setAttributes(new Attributes());
+            }
+            custom.put(normalizedPhone, identityName);
+            context.saveObject(custom);
+            context.commitTransaction();
+            
+            workflow.put("success", "true");
+            workflow.put("message", "Identity Verified! Phone " + normalizedPhone + " linked to " + identity.getDisplayName());
+          ]]>
+        </Source>
+      </Script>
+      <Transition to="Stop"/>
+    </Step>
+
+    <Step icon="Stop" name="Stop" posX="300" posY="10"/>
+  </Workflow>
+</sailpoint>

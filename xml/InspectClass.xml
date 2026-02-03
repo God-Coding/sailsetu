@@ -1,0 +1,93 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<sailpoint>
+  <Workflow name="InspectClass" type="Research" libraries="Identity">
+    <Variable input="true" name="className">
+      <Description>The full class name (e.g. sailpoint.object.CertificationItem) or simple name if in sailpoint.object package.</Description>
+    </Variable>
+    <Variable input="true" name="objectId">
+      <Description>Optional: ID or Name of an object to instantiate and inspect dynamically.</Description>
+    </Variable>
+    <Variable output="true" name="methods">
+      <Description>List of methods found.</Description>
+    </Variable>
+
+    <Step icon="Start" name="Start" posX="25" posY="10">
+      <Transition to="Inspect"/>
+    </Step>
+
+    <Step name="Inspect" posX="150" posY="10">
+      <Script>
+        <Source>
+          <![CDATA[
+            import sailpoint.object.*;
+            import sailpoint.tools.Util;
+            import java.util.*;
+            import java.lang.reflect.Method;
+
+            List methodList = new ArrayList();
+            StringBuilder sb = new StringBuilder();
+
+            try {
+                Class clazz = null;
+                Object instance = null;
+
+                // 1. Resolve Class
+                if (className != null) {
+                    if (!className.contains(".")) {
+                        className = "sailpoint.object." + className;
+                    }
+                    try {
+                        clazz = Class.forName(className);
+                    } catch(Exception e) {
+                        sb.append("Class not found: " + className);
+                    }
+                }
+
+                // 2. Resolve Instance (if objectId provided)
+                if (objectId != null && clazz != null && SailPointObject.class.isAssignableFrom(clazz)) {
+                    instance = context.getObjectById(clazz, objectId);
+                    if (instance == null) {
+                         instance = context.getObjectByName(clazz, objectId);
+                    }
+                }
+                
+                // 3. Inspect
+                if (clazz != null) {
+                    Method[] methods = clazz.getMethods(); // Public methods
+                    Arrays.sort(methods, new Comparator() {
+                        public int compare(Object o1, Object o2) {
+                            return ((Method)o1).getName().compareTo(((Method)o2).getName());
+                        }
+                    });
+
+                    for (Method m : methods) {
+                        String s = m.getReturnType().getSimpleName() + " " + m.getName() + "(";
+                        Class[] params = m.getParameterTypes();
+                        for(int i=0; i<params.length; i++) {
+                             s += params[i].getSimpleName();
+                             if (i < params.length -1) s += ", ";
+                        }
+                        s += ")";
+                        methodList.add(s);
+                        sb.append(s).append("\n");
+                    }
+                }
+
+            } catch(Exception e) {
+                sb.append("Error: " + e.getMessage());
+            }
+
+            workflow.put("methods", sb.toString());
+            return sb.toString();
+          ]]>
+        </Source>
+      </Script>
+      <Transition to="Stop"/>
+    </Step>
+
+    <Step icon="Stop" name="Stop" posX="300" posY="10">
+        <Return name="methods" to="methods"/>
+    </Step>
+  </Workflow>
+</sailpoint>

@@ -1,0 +1,662 @@
+
+[2026-02-03 12:48:34] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c2258c559006c
+Items Input: [{"itemId":"c0a8012f9c221898819c2258c4c30069","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2258c4c5006a","decision":"Remediated"}]
+
+[2026-02-03 12:51:09] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c2260427300ae
+Items Input: [{"itemId":"c0a8012f9c221898819c2260422800ac","decision":"Approved"}]
+
+[2026-02-03 12:51:13] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c2260427300ae
+Items Input: [{"itemId":"c0a8012f9c221898819c2260422800ac","decision":"Approved"}]
+
+[2026-02-03 12:53:44] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c2260427300ae
+Items Input: [{"itemId":"c0a8012f9c221898819c2260422800ac","decision":"Approved"}]
+
+[2026-02-03 13:11:41] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c2272c0530129
+Items Input: [{"itemId":"c0a8012f9c221898819c2272c00c0124","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2272c00f0125","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2272c0120126","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2272c0160127","decision":"Revoked"}]
+
+[2026-02-03 13:14:23] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c2272c0530129
+Items Input: [{"itemId":"c0a8012f9c221898819c2272c00c0124","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2272c00f0125","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2272c0120126","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2272c0160127","decision":"Revoked"}]
+
+[2026-02-03 13:15:41] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c2272c0530129
+Items Input: [{"itemId":"c0a8012f9c221898819c2272c00c0124","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2272c00f0125","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2272c0120126","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2272c0160127","decision":"Remediated"}]
+
+[2026-02-03 13:28:24] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c22825562017e
+Items Input: [{"itemId":"c0a8012f9c221898819c22825522017c","decision":"Approved"}]
+
+[2026-02-03 13:28:46] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c22825562017e
+Items Input: [{"itemId":"c0a8012f9c221898819c22825522017c","decision":"Approved"}]
+
+[2026-02-03 13:34:47] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c2285189c0249
+Items Input: [{"itemId":"c0a8012f9c221898819c2285164001b2","decision":"Revoked"},{"itemId":"c0a8012f9c221898819c2285163d01ae","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285163f01b0","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285164001b3","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285164601b6","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285163f01af","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285164001b1","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285164501b5","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285164a01b8","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285166801ba","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285166d01bc","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167401c0","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167201be","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167801c2","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167001bd","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167201bf","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167501c1","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167801c3","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285168401c6","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516a401ca","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516a301c9","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516a101c8","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516a401cb","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516a701ce","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516ab01cf","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516bf01d2","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516c101d4","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516cf01d6","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516d201d7","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516d501d8","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516d701d9","decision":"Revoked"},{"itemId":"c0a8012f9c221898819c228516da01db","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516db01dc","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516f301df","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516f401e1","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516fa01e3","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516fe01e4","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285170101e5","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285170301e6","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285170c01e8","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285170c01e9","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285171f01ec","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285171f01ee","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285172001f1","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285172201f3","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285171f01ed","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285172001f0","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285172201f2","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285172401f5","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285173201f7","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285173b01f9","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285173e01fb","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285173f01fc","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285174201fd","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285174401fe","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517490200","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517540202","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517600204","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517650206","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517670207","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285176a0208","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285176d0209","decision":"Approved"},{"itemId":"c0a8012f9c221898819c22851776020c","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285177b020e","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285178b0211","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285178d0214","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285178a0210","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285178d0213","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285178e0216","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517910217","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517a30219","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517a3021a","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517b0021d","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517b1021e","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517b5021f","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517b80220","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517ba0222","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517bd0224","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517d10226","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517da0229","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517da022a","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517dd022c","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517df022d","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517e3022e","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517f30230","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517f80232","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285180f0236","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285180f0237","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285180b0234","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285180d0235","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285180f0239","decision":"Approved"},{"itemId":"c0a8012f9c221898819c22851812023b","decision":"Approved"},{"itemId":"c0a8012f9c221898819c22851826023d","decision":"Approved"},{"itemId":"c0a8012f9c221898819c22851830023f","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228518320240","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228518360241","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285183a0242","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228518530244","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228518540245","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228518540246","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228518540247","decision":"Revoked"}]
+Processing input: c0a8012f9c221898819c2285164001b2 / Revoked
+  Match Found! CertItem: c0a8012f9c221898819c2285164001b2
+  Created new Action.
+  Set Status: Remediated (Revoked)
+Processing input: c0a8012f9c221898819c2285163d01ae / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285163d01ae
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285163f01b0 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285163f01b0
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285164001b3 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285164001b3
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285164601b6 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285164601b6
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285163f01af / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285163f01af
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285164001b1 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285164001b1
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285164501b5 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285164501b5
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285164a01b8 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285164a01b8
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285166801ba / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285166801ba
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285166d01bc / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285166d01bc
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167401c0 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167401c0
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167201be / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167201be
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167801c2 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167801c2
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167001bd / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167001bd
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167201bf / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167201bf
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167501c1 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167501c1
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167801c3 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167801c3
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285168401c6 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285168401c6
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516a401ca / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516a401ca
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516a301c9 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516a301c9
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516a101c8 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516a101c8
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516a401cb / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516a401cb
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516a701ce / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516a701ce
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516ab01cf / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516ab01cf
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516bf01d2 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516bf01d2
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516c101d4 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516c101d4
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516cf01d6 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516cf01d6
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516d201d7 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516d201d7
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516d501d8 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516d501d8
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516d701d9 / Revoked
+  Match Found! CertItem: c0a8012f9c221898819c228516d701d9
+  Created new Action.
+  Set Status: Remediated (Revoked)
+Processing input: c0a8012f9c221898819c228516da01db / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516da01db
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516db01dc / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516db01dc
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516f301df / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516f301df
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516f401e1 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516f401e1
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516fa01e3 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516fa01e3
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516fe01e4 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516fe01e4
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285170101e5 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285170101e5
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285170301e6 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285170301e6
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285170c01e8 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285170c01e8
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285170c01e9 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285170c01e9
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285171f01ec / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285171f01ec
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285171f01ee / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285171f01ee
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285172001f1 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285172001f1
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285172201f3 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285172201f3
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285171f01ed / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285171f01ed
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285172001f0 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285172001f0
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285172201f2 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285172201f2
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285172401f5 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285172401f5
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285173201f7 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285173201f7
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285173b01f9 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285173b01f9
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285173e01fb / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285173e01fb
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285173f01fc / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285173f01fc
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285174201fd / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285174201fd
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285174401fe / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285174401fe
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517490200 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517490200
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517540202 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517540202
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517600204 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517600204
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517650206 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517650206
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517670207 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517670207
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285176a0208 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285176a0208
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285176d0209 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285176d0209
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c22851776020c / Approved
+  Match Found! CertItem: c0a8012f9c221898819c22851776020c
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285177b020e / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285177b020e
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285178b0211 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285178b0211
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285178d0214 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285178d0214
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285178a0210 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285178a0210
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285178d0213 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285178d0213
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285178e0216 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285178e0216
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517910217 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517910217
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517a30219 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517a30219
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517a3021a / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517a3021a
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517b0021d / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517b0021d
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517b1021e / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517b1021e
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517b5021f / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517b5021f
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517b80220 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517b80220
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517ba0222 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517ba0222
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517bd0224 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517bd0224
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517d10226 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517d10226
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517da0229 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517da0229
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517da022a / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517da022a
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517dd022c / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517dd022c
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517df022d / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517df022d
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517e3022e / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517e3022e
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517f30230 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517f30230
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517f80232 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517f80232
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285180f0236 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285180f0236
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285180f0237 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285180f0237
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285180b0234 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285180b0234
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285180d0235 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285180d0235
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285180f0239 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285180f0239
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c22851812023b / Approved
+  Match Found! CertItem: c0a8012f9c221898819c22851812023b
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c22851826023d / Approved
+  Match Found! CertItem: c0a8012f9c221898819c22851826023d
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c22851830023f / Approved
+  Match Found! CertItem: c0a8012f9c221898819c22851830023f
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228518320240 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228518320240
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228518360241 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228518360241
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285183a0242 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285183a0242
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228518530244 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228518530244
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228518540245 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228518540245
+  Created new Action.
+  Set Status: Approved
+Processing input: c0a8012f9
+[2026-02-03 13:34:52] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c2285189c0249
+Items Input: [{"itemId":"c0a8012f9c221898819c2285164001b2","decision":"Remediated"},{"itemId":"c0a8012f9c221898819c2285163d01ae","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285163f01b0","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285164001b3","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285164601b6","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285163f01af","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285164001b1","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285164501b5","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285164a01b8","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285166801ba","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285166d01bc","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167201be","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167401c0","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167801c2","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167001bd","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167201bf","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167501c1","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285167801c3","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285168401c6","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516a401ca","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516a301c9","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516a101c8","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516a401cb","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516a701ce","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516ab01cf","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516bf01d2","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516c101d4","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516cf01d6","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516d201d7","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516d501d8","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516d701d9","decision":"Remediated"},{"itemId":"c0a8012f9c221898819c228516da01db","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516db01dc","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516f301df","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516f401e1","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516fa01e3","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228516fe01e4","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285170101e5","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285170301e6","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285170c01e8","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285170c01e9","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285171f01ec","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285171f01ee","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285172001f1","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285172201f3","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285171f01ed","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285172001f0","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285172201f2","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285172401f5","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285173201f7","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285173b01f9","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285173e01fb","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285173f01fc","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285174201fd","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285174401fe","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517490200","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517540202","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517600204","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517650206","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517670207","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285176a0208","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285176d0209","decision":"Approved"},{"itemId":"c0a8012f9c221898819c22851776020c","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285177b020e","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285178b0211","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285178d0214","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285178a0210","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285178d0213","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285178e0216","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517910217","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517a30219","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517a3021a","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517b0021d","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517b1021e","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517b5021f","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517b80220","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517ba0222","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517bd0224","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517d10226","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517da0229","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517da022a","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517dd022c","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517df022d","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517e3022e","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517f30230","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228517f80232","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285180f0236","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285180f0237","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285180b0234","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285180d0235","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285180f0239","decision":"Approved"},{"itemId":"c0a8012f9c221898819c22851812023b","decision":"Approved"},{"itemId":"c0a8012f9c221898819c22851826023d","decision":"Approved"},{"itemId":"c0a8012f9c221898819c22851830023f","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228518320240","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228518360241","decision":"Approved"},{"itemId":"c0a8012f9c221898819c2285183a0242","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228518530244","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228518540245","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228518540246","decision":"Approved"},{"itemId":"c0a8012f9c221898819c228518540247","decision":"Remediated"}]
+Processing input: c0a8012f9c221898819c2285164001b2 / Remediated
+  Match Found! CertItem: c0a8012f9c221898819c2285164001b2
+Processing input: c0a8012f9c221898819c2285163d01ae / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285163d01ae
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285163f01b0 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285163f01b0
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285164001b3 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285164001b3
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285164601b6 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285164601b6
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285163f01af / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285163f01af
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285164001b1 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285164001b1
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285164501b5 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285164501b5
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285164a01b8 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285164a01b8
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285166801ba / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285166801ba
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285166d01bc / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285166d01bc
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167201be / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167201be
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167401c0 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167401c0
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167801c2 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167801c2
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167001bd / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167001bd
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167201bf / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167201bf
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167501c1 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167501c1
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285167801c3 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285167801c3
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285168401c6 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285168401c6
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516a401ca / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516a401ca
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516a301c9 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516a301c9
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516a101c8 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516a101c8
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516a401cb / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516a401cb
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516a701ce / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516a701ce
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516ab01cf / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516ab01cf
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516bf01d2 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516bf01d2
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516c101d4 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516c101d4
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516cf01d6 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516cf01d6
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516d201d7 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516d201d7
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516d501d8 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516d501d8
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516d701d9 / Remediated
+  Match Found! CertItem: c0a8012f9c221898819c228516d701d9
+Processing input: c0a8012f9c221898819c228516da01db / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516da01db
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516db01dc / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516db01dc
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516f301df / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516f301df
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516f401e1 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516f401e1
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516fa01e3 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516fa01e3
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228516fe01e4 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228516fe01e4
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285170101e5 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285170101e5
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285170301e6 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285170301e6
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285170c01e8 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285170c01e8
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285170c01e9 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285170c01e9
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285171f01ec / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285171f01ec
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285171f01ee / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285171f01ee
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285172001f1 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285172001f1
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285172201f3 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285172201f3
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285171f01ed / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285171f01ed
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285172001f0 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285172001f0
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285172201f2 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285172201f2
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285172401f5 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285172401f5
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285173201f7 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285173201f7
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285173b01f9 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285173b01f9
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285173e01fb / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285173e01fb
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285173f01fc / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285173f01fc
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285174201fd / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285174201fd
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c2285174401fe / Approved
+  Match Found! CertItem: c0a8012f9c221898819c2285174401fe
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517490200 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517490200
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517540202 / Approved
+  Match Found! CertItem: c0a8012f9c221898819c228517540202
+  Set Status: Approved
+Processing input: c0a8012f9c221898819c228517600204 / Approved
+  Match Found! CertIt
+[2026-02-03 14:13:26] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c22a2bf110358
+Items Input: [{"itemId":"c0a8012f9c221898819c22a2bebe0355","decision":"Approved"}]
+
+[2026-02-03 14:13:37] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c22a2bf110358
+Items Input: [{"itemId":"c0a8012f9c221898819c22a2bec30357","decision":"Revoked"}]
+
+[2026-02-03 14:13:43] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c22a2bf110358
+Items Input: null
+
+[2026-02-03 15:18:52] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c22d2058b05b8
+Items Input: [{"itemId":"c0a8012f9c221898819c22d2050b05b3","decision":"Approved"}]
+
+[2026-02-03 15:18:57] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c22d2058b05b8
+Items Input: [{"itemId":"c0a8012f9c221898819c22d2051305b4","decision":"Approved"}]
+
+[2026-02-03 15:19:04] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c22d2058b05b8
+Items Input: [{"itemId":"c0a8012f9c221898819c22d2051b05b5","decision":"Approved"}]
+
+[2026-02-03 15:19:09] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c22d2058b05b8
+Items Input: [{"itemId":"c0a8012f9c221898819c22d2052505b7","decision":"Revoked"}]
+
+[2026-02-03 15:23:42] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c22d2058b05b8
+Items Input: null
+
+[2026-02-03 18:22:59] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c238fea5e0764
+Items Input: [{"itemId":"c0a8012f9c221898819c238fea2c0761","decision":"Approved"},{"itemId":"c0a8012f9c221898819c238fea2c0763","decision":"Approved"}]
+
+[2026-02-03 18:23:09] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c238fea5e0764
+Items Input: [{"itemId":"c0a8012f9c221898819c238fea2c0761","decision":"Approved"},{"itemId":"c0a8012f9c221898819c238fea2c0763","decision":"Approved"}]
+
+[2026-02-03 18:26:43] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c2392aabe078b
+Items Input: [{"itemId":"c0a8012f9c221898819c2392aa930788","decision":"Approved"}]
+
+[2026-02-03 18:26:51] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c2392aabe078b
+Items Input: [{"itemId":"c0a8012f9c221898819c2392aa93078a","decision":"Revoked"}]
+
+[2026-02-03 18:26:55] START MakeReviewDecision
+WorkItemId: c0a8012f9c221898819c2392aabe078b
+Items Input: null

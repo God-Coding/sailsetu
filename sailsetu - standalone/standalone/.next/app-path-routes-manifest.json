@@ -24,6 +24,7 @@
   "/favicon.ico/route": "/favicon.ico",
   "/firefighter/page": "/firefighter",
   "/leaver-cleanup/page": "/leaver-cleanup",
+  "/login/page": "/login",
   "/page": "/",
   "/product-customization/page": "/product-customization",
   "/profile/page": "/profile",

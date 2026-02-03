@@ -1,0 +1,192 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<sailpoint>
+  <Workflow name="GetReviewItems" type="Research" libraries="Identity">
+    <Variable input="true" name="workItemId">
+      <Description>The ID of the WorkItem to fetch items for.</Description>
+    </Variable>
+    <Variable output="true" name="items">
+      <Description>JSON list of certification items.</Description>
+    </Variable>
+    <Variable output="true" name="debug">
+      <Description>Debug trace log.</Description>
+    </Variable>
+
+    <Step icon="Start" name="Start" posX="25" posY="10">
+      <Transition to="Fetch Items"/>
+    </Step>
+
+    <Step name="Fetch Items" posX="150" posY="10">
+      <Script>
+        <Source>
+          <![CDATA[
+            import sailpoint.object.*;
+            import sailpoint.tools.Util;
+            import java.util.*;
+            import org.json.JSONArray;
+            import org.json.JSONObject;
+
+            List results = new ArrayList();
+
+            // Debug Log
+            StringBuilder debug = new StringBuilder();
+
+            if (workItemId != null) {
+                WorkItem wi = context.getObjectById(WorkItem.class, workItemId);
+                if (wi != null) {
+                    debug.append("WorkItem Found. ");
+                    
+                    Certification cert = null;
+                    
+                    // 1. Try direct getter (Attributes can be strings)
+                    try {
+                        Object res = wi.getCertification();
+                        if (res instanceof Certification) {
+                            cert = (Certification) res;
+                            debug.append("Got Cert obj. ");
+                        } else if (res instanceof String) {
+                            cert = context.getObjectById(Certification.class, (String) res);
+                            debug.append("Got Cert ID string. ");
+                        }
+                    } catch (Exception e) { debug.append("Err getCertification: " + e.getMessage() + ". "); }
+                    
+                    // 2. Try ID getter
+                    if (cert == null) {
+                        try {
+                            String cId = wi.getCertificationId();
+                            if (cId != null) {
+                                cert = context.getObjectById(Certification.class, cId);
+                                debug.append("Got Cert via getCertificationId(). ");
+                            }
+                        } catch (Exception e) { debug.append("No getCertificationId() method. "); }
+                    }
+
+                    // 3. Fallback to TargetId (Legacy/Other types)
+                    if (cert == null) {
+                        String targetId = wi.getTargetId(); 
+                        if (targetId != null) {
+                            cert = context.getObjectById(Certification.class, targetId);
+                        }
+                    }
+                    
+                    if (cert == null) {
+                         // Fallback: check attributes
+                         Object certIdObj = wi.getAttribute("certificationId");
+                         if (certIdObj instanceof String) {
+                             cert = context.getObjectById(Certification.class, (String) certIdObj);
+                         }
+                    }
+                    
+                    if (cert != null) {
+                         debug.append("Cert Found: ").append(cert.getName()).append(". ");
+                         List allItems = new ArrayList();
+                         
+                         // Entities
+                         List entities = cert.getEntities();
+                         if (entities != null) {
+                             debug.append("Entities: ").append(entities.size()).append(". ");
+                             for(Object entObj : entities) {
+                                 if (entObj instanceof CertificationEntity) {
+                                     CertificationEntity ent = (CertificationEntity) entObj;
+                                     if (ent.getItems() != null) {
+                                         allItems.addAll(ent.getItems());
+                                     }
+                                 }
+                             }
+                         } else {
+                             debug.append("No Entities. ");
+                         }
+                         
+                         debug.append("Total Items: ").append(allItems.size()).append(". ");
+
+                         for(Object o : allItems) {
+                             if(o instanceof CertificationItem) {
+                                 CertificationItem ci = (CertificationItem) o;
+                                 
+                                 String decision = "Open";
+                                 CertificationAction action = ci.getAction();
+                                 if (action != null && action.getStatus() != null) {
+                                     decision = action.getStatus().toString();
+                                 }
+                                 
+                                 // Resolve Identity using getCertificationEntity() as suggested
+                                 String identityName = ci.getTargetName();
+                                 try {
+                                     CertificationEntity parent = ci.getCertificationEntity();
+                                     if (parent != null) {
+                                         if (parent.getTargetDisplayName() != null) identityName = parent.getTargetDisplayName();
+                                         else if (parent.getTargetName() != null) identityName = parent.getTargetName();
+                                     }
+                                 } catch(Exception e) { debug.append("Err getting parent: " + e.getMessage()); }
+                                 
+                                 Map map = new HashMap();
+                                 map.put("id", ci.getId());
+                                 map.put("identity", identityName);
+                                 
+                                 String attr = "unknown";
+                                 String val = "unknown";
+                                 
+                                 try {
+                                     if (ci.getExceptionAttributeName() != null) {
+                                         attr = ci.getExceptionAttributeName();
+                                         val = ci.getExceptionAttributeValue();
+                                     } 
+                                     else if(ci.getExceptionEntitlements() != null) {
+                                         Object e = ci.getExceptionEntitlements();
+                                         if(e instanceof EntitlementSnapshot) {
+                                             EntitlementSnapshot es = (EntitlementSnapshot) e;
+                                             attr = es.getAttributeValue();
+                                             val = es.getNativeIdentity();
+                                         }
+                                     } else if (ci.getBundle() != null) {
+                                         attr = "Role";
+                                         val = ci.getBundle();
+                                     }
+                                     
+                                     if("unknown".equals(val)) {
+                                          val = ci.getSummary() != null ? ci.getSummary() : ci.getCustom1(); 
+                                     }
+                                 } catch(Exception e) {}
+
+                                 map.put("attribute", attr);
+                                 map.put("value", val);
+                                 map.put("decision", decision);
+                                 results.add(map);
+                             }
+                         }
+                    } else {
+                        debug.append("Cert NOT found for targetId: " + targetId);
+                    }
+                } else {
+                    debug.append("WorkItem NOT found: " + workItemId);
+                }
+            }
+
+            // JSON Serialization (Robust using org.json)
+            JSONArray jsonArray = new JSONArray();
+            try {
+                for (Object obj : results) {
+                   if (obj instanceof Map) {
+                       jsonArray.put(new JSONObject((Map)obj));
+                   }
+                }
+            } catch (Exception e) {
+                debug.append("JSON Serialize Error: " + e.getMessage());
+            }
+
+            String jsonString = jsonArray.toString();
+            workflow.put("items", jsonString);
+            workflow.put("debug", debug.toString()); 
+            return jsonString;
+          ]]>
+        </Source>
+      </Script>
+      <Transition to="Stop"/>
+    </Step>
+
+    <Step icon="Stop" name="Stop" posX="300" posY="10">
+        <Return name="items" to="items"/>
+        <Return name="debug" to="debug"/>
+    </Step>
+  </Workflow>
+</sailpoint>

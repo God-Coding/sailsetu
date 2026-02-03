@@ -179,6 +179,12 @@
       "namedRegex": "^/leaver\\-cleanup(?:/)?$"
     },
     {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
       "page": "/product-customization",
       "regex": "^/product\\-customization(?:/)?$",
       "routeKeys": {},

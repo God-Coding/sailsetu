@@ -1,0 +1,431 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<sailpoint>
+  <Workflow name="MakeReviewDecision" type="LCMProvisioning" libraries="Identity">
+    <Variable input="true" name="workItemId">
+      <Description>The ID of the WorkItem.</Description>
+    </Variable>
+    <Variable input="true" name="signOff">
+      <Description>Boolean string to indicate if the certification should be signed off.</Description>
+    </Variable>
+    <Variable input="true" name="items">
+      <Description>JSON List of decision objects: [{itemId, decision, comments}]</Description>
+    </Variable>
+    <Variable output="true" name="resultStatus">
+      <Description>Success/Failure status.</Description>
+    </Variable>
+    <Variable output="true" name="debug">
+      <Description>Debug trace.</Description>
+    </Variable>
+
+    <Step icon="Start" name="Start" posX="25" posY="10">
+      <Transition to="Apply Decisions"/>
+    </Step>
+
+    <Step name="Apply Decisions" posX="150" posY="10">
+      <Script>
+        <Source>
+          <![CDATA[
+            import sailpoint.object.*;
+            import sailpoint.tools.Util;
+            import sailpoint.api.*;
+            import org.json.JSONArray;
+            import org.json.JSONObject;
+            import java.util.*;
+
+            String status = "Failure";
+            StringBuilder debug = new StringBuilder();
+            
+            // File Logger
+            java.io.FileWriter mainLog = new java.io.FileWriter("c:\\projects\\sailsetu\\decision_debug.txt", true);
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            
+            mainLog.write("\n[" + sdf.format(new Date()) + "] START MakeReviewDecision\n");
+            mainLog.write("WorkItemId: " + workItemId + "\n");
+            mainLog.write("Items Input: " + items + "\n");
+            mainLog.flush();
+
+            debug.append("Starting. ");
+
+            if (workItemId != null) {
+                try {
+                    WorkItem wi = context.getObjectById(WorkItem.class, workItemId);
+                    if (wi != null) {
+                        debug.append("WorkItem found. ");
+                        // 1. Get Certification (Robust)
+                        Certification cert = null;
+                        try {
+                            Object res = wi.getCertification();
+                            if (res instanceof Certification) {
+                                cert = (Certification) res;
+                            } else if (res instanceof String) {
+                                cert = context.getObjectById(Certification.class, (String) res);
+                            }
+                        } catch (Exception e) {}
+                        
+                        if (cert == null) {
+                            String targetId = wi.getTargetId();
+                            if (targetId != null) cert = context.getObjectById(Certification.class, targetId);
+                        }
+
+                        if (cert != null) {
+                            debug.append("Cert found: " + cert.getName() + ". ");
+                            
+                            boolean dirty = false;
+
+                            // Collect ALL items upfront (needed for both matching and stats)
+                            List allItems = new ArrayList();
+                            List entities = cert.getEntities();
+                            if (entities != null) {
+                                for(Object entObj : entities) {
+                                    if (entObj instanceof CertificationEntity) {
+                                        CertificationEntity ent = (CertificationEntity) entObj;
+                                        if (ent.getItems() != null) {
+                                            allItems.addAll(ent.getItems());
+                                        }
+                                    }
+                                }
+                            }
+                            debug.append("Total Items: " + allItems.size() + ". ");
+
+                            // A. PROCESS ITEMS (if present)
+                            if (items != null) {
+                                // Parse Input using org.json
+                                JSONArray jsonArray = null;
+                                try {
+                                    jsonArray = new JSONArray(items);
+                                    debug.append("JSON parsed. ");
+                                } catch(Exception e) {
+                                    debug.append("JSON Error: " + e.getMessage() + ". ");
+                                }
+
+                                if (jsonArray != null) {
+                                    // Match and update (using already populated allItems)
+                                    for(int i=0; i<jsonArray.length(); i++) {
+                                        JSONObject inObj = jsonArray.getJSONObject(i);
+                                        String itemId = inObj.optString("itemId");
+                                        String decision = inObj.optString("decision");
+                                        
+                                        mainLog.write("Processing input: " + itemId + " / " + decision + "\n");
+
+                                        if(Util.isNotNullOrEmpty(itemId) && Util.isNotNullOrEmpty(decision)) {
+                                            boolean found = false;
+                                            for(Object ciObj : allItems) {
+                                                CertificationItem ci = (CertificationItem) ciObj;
+                                                if (itemId.equals(ci.getId())) {
+                                                    found = true;
+                                                    mainLog.write("  Match Found! CertItem: " + ci.getId() + "\n");
+                                                    CertificationAction action = ci.getAction();
+                                                    if (action == null) {
+                                                        action = new CertificationAction();
+                                                        ci.setAction(action);
+                                                        mainLog.write("  Created new Action.\n");
+                                                    }
+                                                    
+                                                    // Set Status
+                                                    if ("Approved".equalsIgnoreCase(decision)) {
+                                                        action.setStatus(CertificationAction.Status.Approved);
+                                                        mainLog.write("  Set Status: Approved\n");
+                                                    } else if ("Revoked".equalsIgnoreCase(decision)) {
+                                                        action.setStatus(CertificationAction.Status.Remediated);
+                                                        mainLog.write("  Set Status: Remediated (Revoked)\n");
+                                                    }
+                                                    
+                                                    // Set Metadata (Critical for matching official Cert process)
+                                                    action.setActorName(context.getUserName());
+                                                    action.setActorDisplayName(context.getUserName()); // Or look up Identity displayName
+                                                    action.setCreated(new Date());
+                                                    action.setDecisionDate(new Date());
+                                                    action.setReviewed(true);
+                                                    action.setDecisionCertificationId(cert.getId());
+                                                    
+                                                    // Update Item Status
+                                                    ci.setSummaryStatus(AbstractCertificationItem.Status.Complete);
+
+                                                    dirty = true;
+                                                }
+                                            }
+                                            if (!found) mainLog.write("  No match found for itemId: " + itemId + "\n");
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // UPDATE STATS (Manual Calculation)
+                            if (dirty) {
+                                int totalItems = 0;
+                                int completedItems = 0;
+                                int remediatedItems = 0;
+                                int approvedItems = 0;
+                                int completedEntities = 0;
+                                int totalEntities = 0;
+                                
+                                List entities = cert.getEntities();
+                                if (entities != null) {
+                                    totalEntities = entities.size();
+                                    for(Object entObj : entities) {
+                                        if (entObj instanceof CertificationEntity) {
+                                            CertificationEntity cent = (CertificationEntity) entObj;
+                                            List cItems = cent.getItems();
+                                            boolean entityComplete = true;
+                                            int entItemsCount = 0;
+                                            
+                                            if (cItems != null) {
+                                                entItemsCount = cItems.size();
+                                                for(Object itemObj : cItems) {
+                                                    CertificationItem ci = (CertificationItem) itemObj;
+                                                    if (ci.getSummaryStatus() != AbstractCertificationItem.Status.Complete) {
+                                                        entityComplete = false;
+                                                    } else {
+                                                        // Count global item stats
+                                                        CertificationAction a = ci.getAction();
+                                                        if (a != null) {
+                                                            if (CertificationAction.Status.Approved.equals(a.getStatus())) {
+                                                                approvedItems++;
+                                                            } else if (CertificationAction.Status.Remediated.equals(a.getStatus())) {
+                                                                remediatedItems++;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                completedItems += (entityComplete ? entItemsCount : 0); // Logic check: completed items count should be accurate per item, not per entity.
+                                                // Actually, let's tally items independently above.
+                                            }
+                                            
+                                            // Re-verify item completion count for global stats
+                                            if (cItems != null) {
+                                                 for(Object itemObj : cItems) {
+                                                    CertificationItem ci = (CertificationItem) itemObj;
+                                                    if (ci.getSummaryStatus() == AbstractCertificationItem.Status.Complete) {
+                                                        // This was being done above but let's be careful not to double count if I iterate differently
+                                                    }
+                                                 }
+                                            }
+
+                                            if (entityComplete && entItemsCount > 0) {
+                                                cent.setSummaryStatus(AbstractCertificationItem.Status.Complete);
+                                                // cent.setCompleted(new Date()); // Optional but good
+                                                completedEntities++;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Proper Item Scan (Global)
+                                totalItems = 0;
+                                completedItems = 0; // Reset to count properly
+                                if (allItems != null) {
+                                    totalItems = allItems.size();
+                                    for(Object o : allItems) {
+                                        CertificationItem i = (CertificationItem) o;
+                                        if (i.getSummaryStatus() == AbstractCertificationItem.Status.Complete) {
+                                            completedItems++;
+                                        }
+                                    }
+                                }
+                                
+                                int pct = 0;
+                                if (totalItems > 0) {
+                                    pct = (completedItems * 100) / totalItems;
+                                }
+                                
+                                mainLog.write("Manual Stats: Entities=" + completedEntities + "/" + totalEntities + ", Items=" + completedItems + "/" + totalItems + "\n");
+                                
+                                cert.setCompletedItems(completedItems);
+                                cert.setCompletedEntities(completedEntities);
+                                cert.setTotalEntities(totalEntities);
+                                cert.setPercentComplete(pct);
+                                cert.setItemPercentComplete(pct); 
+                                cert.setRemediationsCompleted(remediatedItems);
+                                cert.setRemediationsKickedOff(remediatedItems);
+                                cert.setCertifiedItems(approvedItems);
+                                
+                                context.saveObject(cert);
+                            } else {
+                                mainLog.write("Dirty flag is FALSE. No changes to save.\n");
+                            }
+
+                            // B. SIGN OFF LOGIC (Hardened)
+                            if ("true".equalsIgnoreCase(signOff)) {
+                                debug.append(" SignOff Triggered. ");
+                                try {
+                                    String signerName = context.getUserName();
+                                    Identity signer = context.getObjectByName(Identity.class, signerName);
+                                    
+                                    // 1. Explicit Provisioning (Revocations)
+                                    ProvisioningPlan plan = new ProvisioningPlan();
+                                    List entListProv = cert.getEntities();
+                                    if (entListProv != null) {
+                                        for(Object eObj : entListProv) {
+                                            if (eObj instanceof CertificationEntity) {
+                                                CertificationEntity cent = (CertificationEntity) eObj;
+                                                List cItems = cent.getItems();
+                                                if (cItems != null) {
+                                                    for(Object iObj : cItems) {
+                                                        CertificationItem cItem = (CertificationItem) iObj;
+                                                        CertificationAction cAction = cItem.getAction();
+                                                        if (cAction != null && CertificationAction.Status.Remediated.equals(cAction.getStatus())) {
+                                                            String appName = cItem.getExceptionApplication();
+                                                            String nativeId = null;
+                                                            
+                                                            // Robust Fallback for Application & NativeIdentity
+                                                            if (cItem.getExceptionEntitlements() instanceof EntitlementSnapshot) {
+                                                                EntitlementSnapshot es = (EntitlementSnapshot) cItem.getExceptionEntitlements();
+                                                                if (appName == null) appName = es.getApplication();
+                                                                if (nativeId == null) nativeId = es.getNativeIdentity();
+                                                            }
+                                                            
+                                                            // Fallback: If standard certification (not exception), find Link
+                                                            if (nativeId == null && appName != null) {
+                                                                try {
+                                                                     CertificationEntity parent = cItem.getCertificationEntity();
+                                                                     String identName = null;
+                                                                     if (parent != null) identName = parent.getIdentity();
+                                                                     
+                                                                     if (identName != null) {
+                                                                         Identity idOnly = context.getObjectByName(Identity.class, identName);
+                                                                         if (idOnly != null) {
+                                                                             List links = idOnly.getLinks();
+                                                                             if (links != null) {
+                                                                                 for(Object lObj : links) {
+                                                                                     Link l = (Link) lObj;
+                                                                                     if (appName.equals(l.getApplicationName())) {
+                                                                                         nativeId = l.getNativeIdentity();
+                                                                                         // Prefer active link? Just take first match for now.
+                                                                                         break; 
+                                                                                     }
+                                                                                 }
+                                                                             }
+                                                                         }
+                                                                     }
+                                                                } catch(Exception e) { debug.append("LinkErr: " + e.getMessage()); }
+                                                            }
+                                                            
+                                                            String attrName = cItem.getExceptionAttributeName();
+                                                            Object attrValue = cItem.getExceptionAttributeValue();
+                                                            
+                                                            if (cItem.getExceptionEntitlements() instanceof EntitlementSnapshot) {
+                                                                EntitlementSnapshot es = (EntitlementSnapshot) cItem.getExceptionEntitlements();
+                                                                if (attrName == null) attrName = es.getAttributeName();
+                                                                if (attrValue == null) attrValue = es.getAttributeValue();
+                                                            }
+                                                            
+                                                            if (Util.isNotNullOrEmpty(appName) && Util.isNotNullOrEmpty(nativeId)) {
+                                                                AccountRequest accReq = null;
+                                                                List accReqs = plan.getAccountRequests();
+                                                                if (accReqs != null) {
+                                                                    for(Object arObj : accReqs) {
+                                                                        AccountRequest ar = (AccountRequest) arObj;
+                                                                        if (appName.equals(ar.getApplication()) && nativeId.equals(ar.getNativeIdentity())) {
+                                                                             accReq = ar; break;
+                                                                        }
+                                                                    }
+                                                                }
+                                                                if (accReq == null) {
+                                                                    accReq = new AccountRequest();
+                                                                    accReq.setApplication(appName);
+                                                                    accReq.setNativeIdentity(nativeId);
+                                                                    accReq.setOperation(AccountRequest.Operation.Modify);
+                                                                    plan.add(accReq);
+                                                                }
+                                                                accReq.add(new AttributeRequest(attrName, ProvisioningPlan.Operation.Remove, attrValue));
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (plan.getAccountRequests() != null && !plan.getAccountRequests().isEmpty()) {
+                                        plan.setIdentity(signer); 
+                                        Provisioner provisioner = new Provisioner(context);
+                                        provisioner.execute(plan);
+                                        debug.append("Provisioned. ");
+                                    }
+
+                                    // 2. Identify Refresh
+                                    try {
+                                        Identitizer identitizer = new Identitizer(context);
+                                        Set<String> refreshedIds = new HashSet<String>();
+                                        if (entListProv != null) {
+                                            for(Object eObj : entListProv) {
+                                                CertificationEntity cent = (CertificationEntity) eObj;
+                                                String identityName = cent.getIdentity();
+                                                if (identityName != null && !refreshedIds.contains(identityName)) {
+                                                    Identity idToRef = context.getObjectByName(Identity.class, identityName);
+                                                    if (idToRef != null) {
+                                                        identitizer.refresh(idToRef);
+                                                        refreshedIds.add(identityName);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        debug.append("Refreshed. ");
+                                    } catch(Exception e) { debug.append("RefErr: " + e.getMessage()); }
+
+                                    // 3. Finalize Certification
+                                    cert.setPhase(Certification.Phase.End);
+                                    cert.setSigned(new Date());
+                                    try {
+                                        java.lang.reflect.Method updateStats = cert.getClass().getMethod("updateStatistics");
+                                        updateStats.invoke(cert);
+                                        debug.append("Final Stats. ");
+                                    } catch(Exception ign){}
+
+                                    context.saveObject(cert);
+                                    
+                                    // 4. Complete WorkItem
+                                    wi.setState(WorkItem.State.Finished);
+                                    wi.setOwner(signer); // Set owner to signer for audit
+                                    // wi.setEndDate(new Date()); // Removed: Method does not exist
+                                    context.saveObject(wi);
+                                    
+                                    context.commitTransaction();
+                                    debug.append("WorkItem Completed. ");
+                                    
+                                    dirty = false; // Already saved
+                                    status = "Success";
+
+                                } catch (Exception e) {
+                                    status = "Error-SignOff: " + e.getMessage();
+                                    debug.append("Err: " + e.getMessage());
+                                }
+                            }
+
+                            if (dirty) {
+                                context.saveObject(cert);
+                                context.commitTransaction();
+                                status = "Success";
+                                debug.append("Saved. ");
+                            } else {
+                                if (!"Success".equals(status)) status = "NoChanges";
+                            }
+                        } else {
+                            status = "Error: Certification not found";
+                            debug.append("Cert not found. ");
+                        }
+                    }
+                } catch (Exception e) {
+                   status = "Error: " + e.getMessage();
+                   debug.append("Ex: " + e.getMessage());
+                }
+            } else {
+                debug.append("Input null. ");
+            }
+            
+            workflow.put("resultStatus", status);
+            workflow.put("debug", debug.toString());
+            return status;
+          ]]>
+        </Source>
+      </Script>
+      <Transition to="Stop"/>
+    </Step>
+
+    <Step icon="Stop" name="Stop" posX="300" posY="10">
+        <Return name="resultStatus" to="resultStatus"/>
+        <Return name="debug" to="debug"/>
+    </Step>
+  </Workflow>
+</sailpoint>

@@ -1,0 +1,152 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow explicitTransitions="true" name="ExecuteRule" type="IdentityLifecycle">
+  <Variable input="true" name="source">
+    <Description>The Beanshell script code to execute or save.</Description>
+  </Variable>
+  <Variable input="true" name="action">
+    <Description>'execute' to run, 'save' to persist as a Rule.</Description>
+  </Variable>
+  <Variable input="true" name="ruleName">
+    <Description>Name of the Rule (required for save).</Description>
+  </Variable>
+  <Variable input="true" name="ruleType">
+    <Description>Type of the Rule (e.g., IdentityAttribute, BuildMap, etc.).</Description>
+  </Variable>
+  
+  <Variable name="result" output="true">
+    <Description>The return value or status message.</Description>
+  </Variable>
+
+  <Step icon="Start" name="Start" posX="20" posY="20">
+    <Transition to="Process Rule"/>
+  </Step>
+
+  <Step icon="Task" name="Process Rule" posX="150" posY="20" resultVariable="result">
+    <Script>
+      <Source>
+        <![CDATA[
+        import sailpoint.object.Rule;
+        import sailpoint.tools.Util;
+        import sailpoint.object.SalePointObject;
+        import bsh.Interpreter;
+        import java.io.ByteArrayOutputStream;
+        import java.io.PrintStream;
+
+        String output = "";
+
+        try {
+            if ("save".equalsIgnoreCase(action)) {
+                // SAVE LOGIC
+                if (ruleName == null || ruleName.trim().isEmpty()) {
+                    output = "Error: Rule Name is required to save.";
+                } else {
+                    Rule r = context.getObjectByName(Rule.class, ruleName);
+                    if (r == null) {
+                        r = new Rule();
+                        r.setName(ruleName);
+                        output = "Success: Created new Rule '" + ruleName + "'.";
+                    } else {
+                        output = "Success: Updated existing Rule '" + ruleName + "'.";
+                    }
+                    
+                    r.setLanguage("beanshell");
+                    r.setSource(source);
+                    
+                    // Default type if generic
+                    if (ruleType != null && !ruleType.isEmpty()) {
+                        r.setType(sailpoint.object.Rule.Type.valueOf(ruleType));
+                    }
+                    
+                    context.saveObject(r);
+                    context.commitTransaction();
+                }
+            } else {
+                // EXECUTE LOGIC
+                // We wrap the source in a closure or just eval it.
+                // Note: 'eval' runs in the current Beanshell context.
+                // We will provide a simple sandbox.
+                
+                if (source == null || source.trim().isEmpty()) {
+                     output = "No source code provided.";
+                } else {
+                     long start = System.currentTimeMillis();
+                     
+                     // Redirect System.out calls to our local helper methods via string replacement
+                     // This is a robust way to capture standard logging in this sandbox without JVM hacks
+                     String safeSource = source.replaceAll("System\\.out\\.println\\s*\\(", "println(")
+                                               .replaceAll("System\\.out\\.print\\s*\\(", "print(");
+
+                     String wrapper = "StringBuilder _sb = new StringBuilder();\n" +
+                                      "void print(Object o) { _sb.append(o != null ? o.toString() : \"null\"); }\n" +
+                                      "void println(Object o) { _sb.append(o != null ? o.toString() : \"null\").append(\"\\n\"); }\n" +
+                                      "// --- User Code ---\n" +
+                                      safeSource + 
+                                      "\n// --- End User Code ---\n" +
+                                      "";
+                     
+                     StringBuilder _sb = new StringBuilder();
+
+                     bsh.Interpreter i = new bsh.Interpreter();
+                     i.set("context", context);
+                     i.set("log", log);
+                     
+                     // Capture Buffer
+                     ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                     PrintStream ps = new PrintStream(baos);
+                     i.setOut(ps); 
+                     
+                     // Evaluate the WRAPPED code (concatenated)
+                     // Wait, I passed 'source' to eval before, but I constructed 'wrapper' string and ignored it?
+                     // Yes, previously I defined 'wrapper' string but didn't use it! I used 'source'.
+                     // I need to use the combined string.
+                     
+                     // We need to inject the helper methods into the interpreter first.
+                     i.eval("import sailpoint.object.*;"); // Ensure imports
+                     i.eval("StringBuilder _sb = new StringBuilder();");
+                     i.eval("void print(Object o) { _sb.append(o != null ? o.toString() : \"null\"); }");
+                     i.eval("void println(Object o) { _sb.append(o != null ? o.toString() : \"null\").append(\"\\n\"); }");
+                     
+                     // Now eval the user source (with System.out replaced)
+                     Object ret = i.eval(safeSource);
+                     
+                     // Get the captured string from _sb
+                     Object sbVal = i.get("_sb");
+                     String methodLog = sbVal != null ? sbVal.toString() : "";
+                     
+                     ps.flush();
+                     String streamLog = baos.toString("UTF-8");
+                     
+                     long time = System.currentTimeMillis() - start;
+                     
+                     output = "Execution Complete (" + time + "ms).\n";
+                     
+                     if (!methodLog.isEmpty() || !streamLog.isEmpty()) {
+                         output += "--- Output (System.out) ---\n";
+                         if (!methodLog.isEmpty()) output += methodLog;
+                         if (!streamLog.isEmpty()) output += streamLog;
+                         output += "\n";
+                     }
+                     
+                     output += "--- Return Value ---\n";
+                     if (ret != null) {
+                         output += ret.toString();
+                     } else {
+                         output += "null";
+                     }
+                }
+            }
+        } catch (Exception e) {
+            output = "Error Detected: \n" + e.toString();
+             // For more detail, we could print stack trace, but string is usually enough
+        }
+        
+        return output;
+        ]]>
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+  </Step>
+
+  <Step icon="Stop" name="Stop" posX="300" posY="20"/>
+</Workflow>

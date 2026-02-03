@@ -7,6 +7,7 @@ export class AccessReviewFeature implements Feature {
     id = "access-reviews";
     name = "Access Reviews";
     description = "View and act on pending access certifications.";
+    requiredCapability = "Reviewer";
 
     async onSelect(ctx: BotContext) {
         ctx.session.data = {}; // Clear data
@@ -64,8 +65,13 @@ export class AccessReviewFeature implements Feature {
         // OR ask "Enter your Identity Name" first?
         // Let's stick to "spadmin" fallback or use config.
 
-        const reviewer = "spadmin"; // Hardcoded for MVP/Demo ease
-        // Ideally: ctx.config.username || "spadmin"
+        const reviewer = ctx.session.identifiedUser;
+
+        if (!reviewer) {
+            await ctx.reply("BOT: ⚠️ Error: User identity not found. Please re-verify.");
+            ctx.resetSession();
+            return;
+        }
 
         await ctx.reply(`BOT: ⏳ Fetching reviews for *${reviewer}*...`);
 

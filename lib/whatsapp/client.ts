@@ -6,12 +6,14 @@ import { registry, BotContext, UserSession } from './registry';
 import { leaverCleanupFeature } from './features/leaver-cleanup';
 import { systemStatusFeature } from './features/system-status';
 import { manageAccessFeature } from './features/manage-access';
-import { accessReviewFeature } from './features/access-review'; // Access Review Feature
+import { accessReviewFeature } from './features/access-review';
+import { verifyIdentityFeature } from './features/verify-identity';
 
 // Register Features
+registry.register(verifyIdentityFeature); // First - for unidentified users
 registry.register(leaverCleanupFeature);
 registry.register(manageAccessFeature);
-registry.register(accessReviewFeature); // Register
+registry.register(accessReviewFeature);
 registry.register(systemStatusFeature);
 
 export class WhatsAppService extends EventEmitter {
@@ -158,8 +160,16 @@ export class WhatsAppService extends EventEmitter {
 
                 if (!isCommand && !hasSession && !isWakeWord) return;
             } else {
-                // EXPLICITLY IGNORE messages from others
-                return;
+                // Message from OTHERS (The User)
+
+                // 1. Ignore Groups
+                if (msg.from.includes('@g.us')) return;
+
+                // 2. Ignore Status Updates (Broadcasts)
+                if (msg.from === 'status@broadcast') return;
+
+                // 3. Allow DMs
+                // We proceed to handleMessage
             }
 
             await this.handleMessage(msg);
@@ -198,9 +208,63 @@ export class WhatsAppService extends EventEmitter {
     }
 
     // ------------------------------------------
+    // PHONE-BASED IDENTITY LOOKUP
+    // ------------------------------------------
+    private async tryIdentifyByPhone(chatId: string, session: UserSession) {
+        console.log(`[WhatsApp Debug] tryIdentifyByPhone Called for ${chatId}`);
+        if (!this.sailpointConfig) {
+            console.log('[WhatsApp Debug] No Config - Skipping lookup');
+            return;
+        }
+
+        // Extract phone number from chatId (format: 919063248559@c.us)
+        const phoneNumber = chatId.replace('@c.us', '').replace('@s.whatsapp.net', '');
+        console.log(`[WhatsApp] Attempting identity lookup for phone: ${phoneNumber}`);
+
+        try {
+            console.log('[WhatsApp Debug] Importing workflow lib...');
+            const { launchWorkflow } = await import('@/lib/sailpoint/workflow');
+            console.log('[WhatsApp Debug] Launching LookupIdentityByPhone...');
+            const result = await launchWorkflow('LookupIdentityByPhone', { phoneNumber }, this.sailpointConfig);
+            console.log(`[WhatsApp Debug] Lookup Result: success=${result.success}`);
+
+            if (result.success && result.launchResult) {
+                const attrs = result.launchResult.attributes;
+
+                // Helper to parse attributes
+                const getAttr = (key: string) => {
+                    if (!Array.isArray(attrs)) return null;
+                    const found = attrs.find((a: any) => a.key === key);
+                    return found ? found.value : null;
+                };
+
+                const found = getAttr('found') === 'true' || getAttr('found') === true;
+
+                if (found) {
+                    session.identifiedUser = getAttr('identityName');
+                    session.displayName = getAttr('displayName');
+
+                    const capsStr = getAttr('capabilities');
+                    try {
+                        session.capabilities = capsStr ? JSON.parse(capsStr) : ['User'];
+                    } catch { session.capabilities = ['User']; }
+
+                    console.log(`[WhatsApp] ✅ Identified user: ${session.displayName} (${session.identifiedUser}) - Capabilities: ${session.capabilities}`);
+                } else {
+                    console.log(`[WhatsApp] ⚠️ Phone ${phoneNumber} not mapped to any Identity`);
+                    session.identifiedUser = null;
+                }
+            }
+        } catch (e: any) {
+            console.error(`[WhatsApp] Phone lookup error: ${e.message}`);
+        }
+    }
+
+    // ------------------------------------------
     // MAIN MESSAGE HANDLER
     // ------------------------------------------
     private async handleMessage(msg: any) {
+        console.log(`[WhatsApp Debug] handleMessage: ${msg.body} from ${msg.from}`);
         // Check Config (Soft check)
         if (!this.sailpointConfig) {
             // Try to restore again just in case
@@ -219,11 +283,25 @@ export class WhatsAppService extends EventEmitter {
         // Get or Create Session
         let session = this.sessions.get(chatId);
         if (!session) {
-            // New session defaults to Active? Or Wait for Hello?
-            // User requested "If I exit... connection close. If I say Hi... open".
-            // Let's default to ACTIVE for convenience, but respect the toggle.
-            session = { step: 'MENU', data: {}, lastActive: Date.now(), isActive: true };
+            console.log('[WhatsApp Debug] Creating New Session');
+            // New session - attempt phone-based identification
+            session = {
+                step: 'MENU',
+                data: {},
+                lastActive: Date.now(),
+                isActive: true,
+                identifiedUser: null,      // SailPoint Identity name
+                displayName: null,          // User's display name
+                capabilities: []            // ["Reviewer", "Admin", "User"]
+            };
             this.sessions.set(chatId, session);
+
+            // Attempt auto-identification by phone
+            if (this.sailpointConfig) {
+                await this.tryIdentifyByPhone(chatId, session);
+            } else {
+                console.log('[WhatsApp Debug] Session created but No Config for lookup');
+            }
         }
 
         // --- GLOBAL SESSION COMMANDS ---
@@ -242,7 +320,7 @@ export class WhatsAppService extends EventEmitter {
             session.isActive = true;
             session.step = 'MENU';
             await this.client?.sendMessage(chatId, "BOT: 👋 *Hello! SailSetu is Online.*");
-            await this.sendMainMenu(msg);
+            await this.sendMainMenu(msg, session);
             return;
         }
 
@@ -260,7 +338,7 @@ export class WhatsAppService extends EventEmitter {
             }
             session.step = 'MENU';
             session.data = {};
-            await this.sendMainMenu(msg, lower === '!textmenu');
+            await this.sendMainMenu(msg, session, lower === '!textmenu');
             return;
         }
 
@@ -309,7 +387,7 @@ export class WhatsAppService extends EventEmitter {
             }
             // 3. Fallback
             else {
-                await this.sendMainMenu(msg);
+                await this.sendMainMenu(msg, session);
             }
         } catch (error: any) {
             console.error("Workflow Error:", error);
@@ -318,25 +396,49 @@ export class WhatsAppService extends EventEmitter {
         }
     }
 
-    private async sendMainMenu(msg: any, forceText: boolean = false) {
-        const features = registry.getAll();
+    private async sendMainMenu(msg: any, session: UserSession, forceText: boolean = false) {
+        const allFeatures = registry.getAll();
+        const userCaps = session.capabilities || [];
+
+        // Filter features based on capabilities
+        const features = allFeatures.filter(f => {
+            if (!f.requiredCapability || f.requiredCapability === '*') return true;
+            return userCaps.includes(f.requiredCapability);
+        });
+
+        console.log(`[WhatsApp Debug] sendMainMenu: Found ${features.length} features for user (Caps: ${userCaps})`);
+
+        if (features.length === 0) {
+            await this.client?.sendMessage(msg.from, "BOT: ⚠️ No matching features found for your role.");
+            return;
+        }
+
+        // ALWAYS send a text greeting first to ensure connectivity/feedback (Debug Mode)
+        await this.client?.sendMessage(msg.from, "BOT: ⏳ Loading Menu...");
+
+        // FORCE TEXT MODE for now to bypass Poll issues
+        forceText = true;
 
         if (!forceText) {
             try {
-                console.log('[WhatsApp] Sending Main Menu (Poll Mode)...');
                 const options = features.map(f => f.name); // Poll options
+                console.log('[WhatsApp Debug] Poll Options:', JSON.stringify(options));
+
+                // Validate Poll options (must be > 0, preferably > 1 for a poll, but 1 is valid in some versions?)
+                // Actually WhatsApp Web JS Polls usually need at least 1 option.
 
                 const pollMsg = new Poll(
                     "🤖 *SailSetu Tools Menu*\nSelect a tool to open:",
                     options,
-                    { allowMultipleAnswers: false } as any // Cast to ANY to bypass strict type check for messageSecret
+                    { allowMultipleAnswers: false } as any
                 );
 
                 await this.client?.sendMessage(msg.from, pollMsg);
                 console.log('[WhatsApp] Main Menu sent (Poll Mode).');
                 return;
-            } catch (e) {
-                console.error("Error sending poll, falling back to text:", e);
+            } catch (e: any) {
+                console.error("Error sending poll, falling back to text:", e.message);
+                await this.client?.sendMessage(msg.from, `BOT: ⚠️ Error loading menu: ${e.message}`);
             }
         }
 
@@ -354,7 +456,14 @@ export class WhatsAppService extends EventEmitter {
     }
 
     private async handleMenuSelection(ctx: BotContext, selection: string) {
-        const features = registry.getAll();
+        const allFeatures = registry.getAll();
+        const userCaps = ctx.session.capabilities || [];
+
+        // Filter features based on capabilities
+        const features = allFeatures.filter(f => {
+            if (!f.requiredCapability || f.requiredCapability === '*') return true;
+            return userCaps.includes(f.requiredCapability);
+        });
 
         // 1. Try to find by Name (Button Click sends Name)
         let feature = features.find(f => f.name === selection || f.id === selection);

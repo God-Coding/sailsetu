@@ -24,10 +24,16 @@
           import sailpoint.object.Link;
           import sailpoint.object.Reference;
           import sailpoint.object.Entitlement;
+          import sailpoint.object.ManagedAttribute;
+          import sailpoint.object.Application;
+          import sailpoint.object.QueryOptions;
+          import sailpoint.object.Filter;
           import java.util.ArrayList;
           import java.util.List;
           import java.util.Map;
           import java.util.HashMap;
+          import java.util.Locale;
+          import java.util.Iterator;
 
           List results = new ArrayList();
 
@@ -58,41 +64,107 @@
                       }
                   }
 
-                  // 3. Entitlements (Granular) & Accounts
+                  // 2. Links / Entitlements
                   List links = id.getLinks();
                   if (links != null) {
                       for (Link l : links) {
                           String appName = l.getApplicationName();
-                          
-                          // A. Parse granular entitlements using the official API
-                          List linkEntitlements = l.getEntitlements(null, null);
-                          if (linkEntitlements != null && !linkEntitlements.isEmpty()) {
-                              for (Entitlement ent : linkEntitlements) {
-                                  Map item = new HashMap();
-                                  item.put("type", "Entitlement");
-                                  item.put("name", appName + " : " + ent.getAttributeName());
-                                  item.put("value", ent.getAttributeValue());
-                                  results.add(item);
-                              }
-                          } else {
-                              // Fallback: If no granular entitlements, just show the account
-                              Map item = new HashMap();
-                              item.put("type", "Account");
-                              item.put("name", appName + " Account");
-                              item.put("value", l.getNativeIdentity());
-                              results.add(item);
+                          Application appObj = l.getApplication(); // Need object for filter
+
+                          // Fetch Entitlements using standard API
+                          List entitlements = l.getEntitlements(Locale.getDefault(), "");
+                          if (entitlements != null) {
+                               for (Entitlement ent : entitlements) {
+                                  String entAttr = ent.getAttributeName();
+                                  Object val = ent.getAttributeValue();
+                                  
+                                  if (val != null) {
+                                      List vals = new ArrayList();
+                                      if (val instanceof List) vals.addAll((List)val);
+                                      else vals.add(val);
+                                      
+                                      for (Object v : vals) {
+                                          String entValue = (String) v;
+                                          
+                                          Map entItem = new HashMap();
+                                          entItem.put("type", "Entitlement");
+                                          entItem.put("application", appName);
+                                          entItem.put("attribute", entAttr);
+                                          entItem.put("value", entValue);
+                                          
+                                          // ManagedAttribute Lookup (Leaver Logic)
+                                          QueryOptions maQo = new QueryOptions();
+                                          if (appObj != null) {
+                                               maQo.addFilter(Filter.eq("application", appObj));
+                                          } else {
+                                               maQo.addFilter(Filter.eq("application.name", appName));
+                                          }
+                                          maQo.addFilter(Filter.eq("value", entValue));
+                                          // Optional: Filter by attribute name if known to limit results?
+                                          if (entAttr != null) maQo.addFilter(Filter.eq("attribute", entAttr));
+                                          
+                                          Iterator maIt = context.search(ManagedAttribute.class, maQo);
+                                          if (maIt.hasNext()) {
+                                              ManagedAttribute ma = (ManagedAttribute) maIt.next();
+                                              entItem.put("name", ma.getDisplayName() != null ? ma.getDisplayName() : ma.getValue());
+                                              entItem.put("attribute", ma.getAttribute()); // Canonical attribute name
+                                          } else {
+                                              entItem.put("name", entValue); 
+                                              // Fallback to raw value as name
+                                          }
+                                          sailpoint.tools.Util.flushIterator(maIt);
+                                          
+                                          results.add(entItem);
+                                      }
+                                  }
+                               }
                           }
                       }
                   }
               }
           }
-          return results;
+          // Manual JSON Serialization
+          StringBuilder json = new StringBuilder();
+          json.append("[");
+          for(int i=0; i<results.size(); i++) {
+              Map item = (Map) results.get(i);
+              json.append("{");
+              
+              json.append("\"type\":\"").append(item.get("type")).append("\",");
+              
+              String app = (String) item.get("application");
+              if(app==null) app="";
+              json.append("\"application\":\"").append(app).append("\",");
+
+              String nm = (String) item.get("name");
+              if(nm==null) nm="";
+              // Simple escape for quotes
+              nm = nm.replace("\"", "\\\""); 
+              json.append("\"name\":\"").append(nm).append("\",");
+
+              String val = (String) item.get("value");
+              if(val==null) val="";
+              val = val.replace("\"", "\\\"");
+              json.append("\"value\":\"").append(val).append("\""); // End with value usually
+
+              // Add op if needed, though usually blank here
+              
+              json.append("}");
+              if(i < results.size() - 1) json.append(",");
+          }
+          json.append("]");
+          
+          workflow.put("accessList", json.toString());
+          
+          return json.toString(); // Return for good measure
           ]]>
         </Source>
       </Script>
       <Transition to="Stop"/>
     </Step>
 
-    <Step icon="Stop" name="Stop" posX="300" posY="10"/>
+    <Step icon="Stop" name="Stop" posX="300" posY="10">
+      <Return name="accessList" to="accessList"/>
+    </Step>
   </Workflow>
 </sailpoint>

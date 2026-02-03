@@ -144,6 +144,14 @@
                                        acctReq.setApplication(appName);
                                        
                                        String targetNativeId = identityName;
+                                       // Only lookup nativeId if not provided (fallback)
+                                       if (value != null && application != null && name != null) {
+                                            // Wait, granular entitlement usually shares nativeId with account.
+                                            // But standard format doesn't always pass nativeId in 'value'.
+                                            // 'value' here is entitlement value.
+                                            // So we must look up Account Link unless passed explicitly.
+                                       }
+
                                        if (identityObj != null) {
                                             List links = identityObj.getLinks();
                                             if (links != null) {

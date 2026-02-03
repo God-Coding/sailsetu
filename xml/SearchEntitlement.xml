@@ -1,0 +1,47 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Workflow PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Workflow name="SearchEntitlement" type="IdentityLifeCycle">
+  <Variable name="applicationName" input="true" />
+  <Variable name="value" input="true" />
+  <Variable name="found" output="true" />
+  <Variable name="attribute" output="true" />
+  <Variable name="displayName" output="true" />
+  
+  <Step name="Search" icon="Search">
+    <Script>
+      <Source>
+        <![CDATA[
+        import sailpoint.object.*;
+        import sailpoint.object.QueryOptions;
+        import sailpoint.object.Filter;
+        import java.util.*;
+
+        String app = applicationName;
+        String val = value;
+        
+        System.out.println("Searching Entitlement: App=" + app + " Value=" + val);
+
+        QueryOptions qo = new QueryOptions();
+        qo.addFilter(Filter.eq("application.name", app));
+        qo.addFilter(Filter.eq("value", val));
+        
+        Iterator iter = context.search(ManagedAttribute.class, qo);
+        
+        if (iter.hasNext()) {
+            ManagedAttribute ma = (ManagedAttribute) iter.next();
+            workflow.put("found", true);
+            workflow.put("attribute", ma.getAttribute());
+            workflow.put("displayName", ma.getDisplayName());
+            // workflow.put("type", ma.getType());
+        } else {
+            workflow.put("found", false);
+        }
+        
+        sailpoint.tools.Util.flushIterator(iter);
+        ]]>
+      </Source>
+    </Script>
+    <Transition to="Stop"/>
+  </Step>
+  <Step name="Stop" icon="Stop"/>
+</Workflow>
